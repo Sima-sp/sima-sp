@@ -1,52 +1,81 @@
 package br.com.back_end.simasp.sensor.controller;
 
+import br.com.back_end.simasp.sensor.dto.AlterarLocalizacaoSensor;
+import br.com.back_end.simasp.sensor.dto.AlterarStatusSensor;
 import br.com.back_end.simasp.sensor.dto.SensorRequest;
 import br.com.back_end.simasp.sensor.dto.SensorResponse;
-import br.com.back_end.simasp.sensor.service.SensorService;
+import br.com.back_end.simasp.sensor.enums.StatusSensor;
+import br.com.back_end.simasp.sensor.service.SensorAdminService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @RestController
 @RequestMapping("/admin/sensores")
+//@CrossOrigin("*")
+
 public class SensorAdminController {
 
     @Autowired
-    private SensorService service;
+    private SensorAdminService serviceAdmin;
 
-    @GetMapping("/busca-sensor/{id}")
-    public ResponseEntity<SensorResponse> buscarSensorPorId(@PathVariable Long id)
+    @GetMapping("/sensores-proximos/manutencao")
+    public ResponseEntity<Page<SensorResponse>> buscarSensoresEmManutencaoProximos(@RequestParam BigDecimal longitude, @RequestParam BigDecimal latitude, @RequestParam Integer distanciaMetros, Pageable pageable)
     {
-        SensorResponse response = service.buscarSensorPorId(id);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(serviceAdmin.buscarSensoresEmManutencaoProximos(longitude, latitude, distanciaMetros, pageable));
     }
 
-    @GetMapping("/sensores-proximos/MANUTENCAO/{latitude}/{longitude}/{distanciaMetros};")
-    public ResponseEntity<List<SensorResponse>> buscarSensoresEmManutencaoProximos(@PathVariable BigDecimal latitude, @PathVariable BigDecimal longitude, @PathVariable Integer distanciaMetros)
+    @GetMapping("/sensores-proximos/inativo")
+    public ResponseEntity<Page<SensorResponse>> buscarSensoresInativosProximos(@RequestParam BigDecimal longitude, @RequestParam BigDecimal latitude, @RequestParam Integer distanciaMetros, Pageable pageable)
     {
-        return ResponseEntity.ok(service.buscarSensoresEmManutencaoProximos(longitude, latitude, distanciaMetros));
-    }
-
-    @GetMapping("/sensores-proximos/INATIVO/{latitude}/{longitude}/{distanciaMetros};")
-    public ResponseEntity<List<SensorResponse>> buscarSensoresInativosProximos(@PathVariable BigDecimal latitude, @PathVariable BigDecimal longitude, @PathVariable Integer distanciaMetros)
-    {
-        return ResponseEntity.ok(service.buscarSensoresInativosProximos(longitude, latitude, distanciaMetros));
+        return ResponseEntity.ok(serviceAdmin.buscarSensoresInativosProximos(longitude, latitude, distanciaMetros, pageable));
     }
 
     @PostMapping("/cadastro-sensor")
     public ResponseEntity<SensorResponse> cadastrarSensor(@Valid @RequestBody SensorRequest sensor) {
 
-        SensorResponse sensorCriado = service.cadastrarSensor(sensor);
+        SensorResponse sensorCriado = serviceAdmin.cadastrarSensor(sensor);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(sensorCriado);
     }
 
+    @PatchMapping("/modificar-sensor/{id}/inativar")
+    public ResponseEntity<Void> inativarSensor(@PathVariable Long id)
+    {
+        AlterarStatusSensor request = new AlterarStatusSensor(StatusSensor.INATIVO);
+        serviceAdmin.atualizarStatusSensor(id, request);
+        return ResponseEntity.noContent().build();
+    }
 
+
+    @PatchMapping("/modificar-sensor/{id}/ativar")
+    public ResponseEntity<Void> ativarSensor(@PathVariable Long id)
+    {
+        AlterarStatusSensor request = new AlterarStatusSensor(StatusSensor.ATIVO);
+        serviceAdmin.atualizarStatusSensor(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+
+    @PatchMapping("/modificar-sensor/{id}/manter")
+    public ResponseEntity<Void> manterSensor(@PathVariable Long id)
+    {
+        AlterarStatusSensor request = new AlterarStatusSensor(StatusSensor.MANUTENCAO);
+        serviceAdmin.atualizarStatusSensor(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/modificar-localizacao-sensor/{id}")
+    public ResponseEntity<Void> atualizarLocalizacaoSensor(@PathVariable Long id, @RequestBody AlterarLocalizacaoSensor request)
+    {
+        serviceAdmin.atualizarLocalizacaoSensor(id, request);
+        return ResponseEntity.noContent().build();
+    }
 
 }

@@ -19,7 +19,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByEmailIgnoreCase(String email);
 
     // Busca usuarios filtrando pelos ativos e por uma distância máxima em metros.
-    @Query(value = "SELECT * FROM TBL_USUARIO u WHERE ST_Distance_Sphere(POINT(u.NR_LONGITUDE, u.NR_LATITUDE), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND u.FL_ATIVO = TRUE", countQuery = "SELECT COUNT(*) FROM TBL_USUARIO u WHERE ST_Distance_Sphere( POINT(u.NR_LONGITUDE, u.NR_LATITUDE), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND u.FL_ATIVO = TRUE", nativeQuery = true)
+    @Query(value = "SELECT * FROM TBL_USUARIO u WHERE ST_Distance_Sphere(POINT(u.NR_LONGITUDE, u.NR_LATITUDE), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND u.FL_ATIVO = TRUE",
+            countQuery = "SELECT COUNT(*) FROM TBL_USUARIO u WHERE ST_Distance_Sphere( POINT(u.NR_LONGITUDE, u.NR_LATITUDE), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND u.FL_ATIVO = TRUE", nativeQuery = true)
     Page<Usuario> buscarUsuariosProximos(@Param("longitude_usuario") BigDecimal longitude, @Param("latitude_usuario") BigDecimal latitude, @Param("distancia_metros") Integer distanciaMetros, Pageable pageable);
 
 

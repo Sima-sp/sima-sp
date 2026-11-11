@@ -5,18 +5,18 @@ import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 
 public record CriarUsuarioRequest(
-        @NotBlank(message = "O e-mail deve ser inserido")
+        @NotNull(message = "O e-mail deve ser inserido.")
         @Email(message = "O e-mail deve ser válido.")
         String email,
 
-        @NotBlank(message = "telefone deve ser inserido")
+        @NotNull(message = "O telefone deve ser inserido.")
         @Pattern(
                 regexp = "\\d{10,11}",
                 message = "O telefone deve possuir 10 ou 11 números."
         )
         String telefone,
 
-        @NotBlank
+        @NotNull(message = "A senha deve ser inserida.")
         @Size(min = 8, max = 72, message = "A senha deve ter entre 9 a 72 caracteres.")
         String senhaHash,
 
@@ -32,7 +32,7 @@ public record CriarUsuarioRequest(
         @DecimalMax(value = "180.000000", message = "Longitude não pode ser maior que 180.")
         BigDecimal longitude,
 
-        @NotBlank(message = "A permissão de alerta deve ser inserida.")
+        @NotNull(message = "A permissão de alerta deve ser inserida.")
         @Size(max = 3, message = "Tamanho da permissão de alerta excedida.")
         Boolean permissaoAlerta
 ) {
