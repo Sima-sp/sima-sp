@@ -1,0 +1,46 @@
+# Versões EXATAS do serviço em produção (imagem Docker) — geradas em 20/09/2026.
+#
+# São as mesmas do ambiente que treinou models/flood_lgbm_v1.joblib. O joblib guarda objetos do
+# scikit-learn e do LightGBM do jeito que eles são naquela versão: com outra versão o modelo pode
+# não carregar, ou carregar e prever diferente. Por isso este arquivo e o .joblib andam juntos —
+# atualizou uma biblioteca, treina de novo e gera este arquivo de novo.
+#
+# Contém só o fecho de dependências de requirements-servico.txt (sem jupyter, geopandas, pytest).
+# O ambiente completo de treino está em requirements.lock.
+# tzdata entra para a conversão de fuso (America/Sao_Paulo) não depender do sistema da imagem.
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.5.0
+cloudpickle==3.1.2
+fastapi==0.141.1
+h11==0.16.0
+httptools==0.8.0
+idna==3.19
+joblib==1.6.0
+lightgbm==4.7.0
+narwhals==2.26.0
+numpy==2.5.3
+pandas==3.0.5
+pydantic==2.13.5
+pydantic_core==2.46.5
+pydantic-settings==2.15.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.3
+PyYAML==6.0.3
+requests==2.34.2
+scikit-learn==1.9.1
+scipy==1.18.1
+six==1.17.0
+starlette==1.6.0
+threadpoolctl==3.7.0
+typing_extensions==4.16.0
+typing-inspection==0.4.4
+tzdata==2026.4
+urllib3==2.8.0
+uvicorn==0.53.0
+uvloop==0.22.1
+watchfiles==1.2.0
+websockets==17.1
