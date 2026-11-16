@@ -126,6 +126,10 @@ class Preditor:
                 "regra": "fator sobre a razão de chances p/(1-p); escolha do grupo, não aprendido",
                 "fatorPorNivelAgua": [list(linha) for linha in AJUSTE_SENSOR["fator_por_nivel_agua"]],
                 "nivelAguaTransbordando": AJUSTE_SENSOR["nivel_agua_transbordando"],
+                "modoRegras": {
+                    "regra": "sem chance para multiplicar: água alta sobe um nível, até ALTO",
+                    "nivelAguaAlerta": AJUSTE_SENSOR["nivel_agua_alerta_regras"],
+                },
             },
         }
 
@@ -323,9 +327,10 @@ class Preditor:
             limiares = None
 
         ajuste = ajustar_por_sensor(probabilidade, nivel_modelo, req.nivelAgua, limiares)
-        if probabilidade is None and req.nivelAgua is not None and not ajuste.medicao_transbordando:
-            avisos.append("modo regras: sem probabilidade, a leitura do sensor só muda o nível "
-                          "quando o bueiro transborda")
+        if probabilidade is None and req.nivelAgua is not None:
+            avisos.append("modo regras: sem probabilidade, a leitura do sensor não entra como fator; "
+                          f"água a partir de {AJUSTE_SENSOR['nivel_agua_alerta_regras']:.0f}% sobe "
+                          "um nível, até ALTO")
 
         acento = self.config.nivel_risco_com_acento
         gerada = agora.floor("s")

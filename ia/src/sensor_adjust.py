@@ -19,8 +19,10 @@ Regras (valores em ``src/config.py`` → ``AJUSTE_SENSOR``):
    ``medicao_transbordando = True``. É o único caminho para CRITICO.
 5. Sem leitura (sensor INATIVO/MANUTENÇÃO ou campo ausente): fator 1, a chance é a do modelo e
    ``sem_leitura = True`` (o app mostra "sem leitura do sensor").
-6. Sem probabilidade (modo regras, ADR 0004): não há chance para multiplicar. O nível é o das
-   regras; só a medição de transbordamento muda o resultado, e o fator vem ``None``.
+6. Sem probabilidade (modo regras, ADR 0004): não há chance para multiplicar, mas a leitura de
+   água continua contando para o nível. ``nivelAgua >= 80 %`` (``nivel_agua_alerta_regras``)
+   sobe um nível, até ALTO; é a regra que o serviço já usava. O fator vem ``None``. A medição
+   de transbordamento (regra 4) vale igual.
 
 O sensor não mede lixo, e a chuva é do próprio serviço: a regra só usa a água.
 """
@@ -31,7 +33,14 @@ import math
 from dataclasses import dataclass, field
 
 from src.config import AJUSTE_SENSOR
-from src.niveis import NivelRisco, maior_nivel, nivel_previsto
+from src.niveis import (
+    NIVEL_MAXIMO,
+    NivelRisco,
+    maior_nivel,
+    menor_nivel,
+    nivel_previsto,
+    subir_nivel,
+)
 
 
 @dataclass
@@ -83,7 +92,8 @@ def ajustar_por_sensor(
     """Aplica a leitura do sensor sobre a chance do modelo (ver docstring do módulo).
 
     ``nivel_modelo`` é o nível só pela chuva e pelo lugar (já com teto em ALTO). ``limiares``
-    são os do modelo, usados para tirar o nível da chance ajustada; podem faltar no modo regras.
+    são os do modelo, usados para tirar o nível da chance ajustada. No modo regras não há chance
+    nem limiares: a água alta sobe um nível (regra 6).
     """
     resultado = ResultadoAjuste(nivel_final=nivel_modelo, nivel_modelo=nivel_modelo,
                                 probabilidade_final=probabilidade_modelo,
@@ -104,6 +114,13 @@ def ajustar_por_sensor(
             resultado.motivos.append(
                 f"nivelAgua {nivel_agua:.0f}%: chance multiplicada por {_num(fator)} "
                 "(regra do grupo, sobre a razão de chances)")
+    elif regras["nivel_agua_alerta_regras"] <= nivel_agua < regras["nivel_agua_transbordando"]:
+        # Modo regras: sem chance para multiplicar, a água alta sobe um nível (até ALTO).
+        resultado.nivel_final = maior_nivel(
+            nivel_modelo, menor_nivel(subir_nivel(nivel_modelo), NIVEL_MAXIMO))
+        resultado.motivos.append(
+            f"nivelAgua {nivel_agua:.0f}% >= {regras['nivel_agua_alerta_regras']:.0f}%: "
+            "sobe um nível, até ALTO (modo regras, sem chance para multiplicar)")
 
     if nivel_agua >= regras["nivel_agua_transbordando"]:
         resultado.nivel_final = NivelRisco.CRITICO

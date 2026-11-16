@@ -166,6 +166,9 @@ AJUSTE_SENSOR = {
     # entre duas linhas ele cresce em escala logarítmica; depois da última fica no último valor.
     # Mesma tabela do app (AGUA_PARA_FATOR, em app/src/dados/demo.js).
     "fator_por_nivel_agua": ((50.0, 1.0), (65.0, 2.5), (80.0, 7.0), (99.0, 12.0)),
+    # Só no modo regras (sem modelo, sem chance para multiplicar): >= sobe um nível, até ALTO.
+    # É o mesmo valor que o serviço já usava antes da ADR 0006 (recomendação R5).
+    "nivel_agua_alerta_regras": 80.0,
 }
 
 # ---------------------------------------------------------------------------

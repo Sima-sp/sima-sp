@@ -75,7 +75,7 @@ mandando os dois até ser atualizado (#18). `chuva` (resumo) e `chuvaHoraria` co
 - O aviso por região (`/predict/regioes`) usa os pontos do modelo, sem sensor: vai até ALTO.
   O limiar CRITICO de região (0,176, com precisão de 35 % e recall de 1,2 % na validação) também
   deixa de ser usado, para a região seguir a mesma escala.
-- O modo regras (ADR 0004) segue a mesma ideia: vai até ALTO.
+- O modo regras (ADR 0004) segue a mesma ideia: vai até ALTO, com ou sem leitura de água (item 5).
 - `thresholds_v1.json` e `thresholds_regiao_v1.json` **mantêm** o valor de CRITICO, para o
   histórico do treino. O serviço deixa de usá-lo; isso fica registrado em `uso_no_servico` nos
   limiares e nos metadados, e no `/model-info` (`limiaresEmUso`, `nivelMaximoPrevisao`). O enum
@@ -83,9 +83,20 @@ mandando os dois até ser atualizado (#18). `chuva` (resumo) e `chuvaHoraria` co
 
 ### 5. Modo regras
 
-Sem modelo não há chance para multiplicar. A leitura de água só muda o resultado quando o bueiro
-transborda; `probabilidadeAlagamento`, `probabilidadeModelo` e `fatorSensor` vêm `null`, e a
-resposta traz um aviso. Antes, água ≥ 80 % subia um nível também no modo regras.
+Sem modelo não há chance para multiplicar, mas a leitura de água é necessária para o nível e
+continua contando. O modo regras mantém a regra que o serviço já usava: **água em 80 % ou mais
+sobe um nível**, agora com teto em ALTO (`AJUSTE_SENSOR["nivel_agua_alerta_regras"]`). Água em
+100 % é CRITICO, medido, como no resto.
+
+| Nível pelas regras de chuva | Água abaixo de 80 % | Água de 80 % a 99 % | Água em 100 % |
+|---|---|---|---|
+| BAIXO | BAIXO | MEDIO | CRITICO (medido) |
+| MEDIO | MEDIO | ALTO | CRITICO (medido) |
+| ALTO | ALTO | ALTO | CRITICO (medido) |
+
+`probabilidadeAlagamento`, `probabilidadeModelo` e `fatorSensor` vêm `null`; `motivosAjuste`
+explica a subida e a resposta traz um aviso. Esta regra só vale sem modelo: com modelo, o que
+vale é o fator (item 1). O `/model-info` mostra o valor em `ajusteSensor.modoRegras`.
 
 ## Consequências
 

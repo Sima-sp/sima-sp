@@ -99,6 +99,9 @@ de chances (1 até 50 %, 2,5 em 65 %, 7 em 80 %, 12 a partir de 99 %). O nível 
 ajustada e vai até ALTO; água em 100 % é medição e é o único caminho para CRITICO. Os pesos são
 escolha do grupo, não aprendizado. O lixo saiu: o sensor mede só água.
 
+A regra antiga da água (80 % ou mais sobe um nível) fica **só no modo regras** (R7), onde não há
+chance para multiplicar, e com teto em ALTO.
+
 Continua valendo: a resposta traz `nivelRiscoModelo`, `motivosAjuste` e `medicaoTransbordando`,
 agora com `probabilidadeModelo` (antes do sensor) e `fatorSensor`.
 
@@ -120,6 +123,9 @@ em JSON costuma dar problema de encoding). Se o `RiskLevel` do backend tiver ace
 Sem `models/flood_lgbm_v1.joblib`, o serviço responde com o baseline de regras,
 `origem: "REGRAS"`, `modeloVersao: "regras-v0"` e **`probabilidadeAlagamento: null`**. Assim
 o backend (dias 14–15) pode ser integrado **antes** do modelo ficar pronto.
+
+Nesse modo o nível vai até ALTO e a leitura de água continua contando: 80 % ou mais sobe um
+nível (até ALTO); 100 % é CRITICO, medido (ADR 0006, item 5).
 
 **Para o backend:** o DTO precisa aceitar `null` (`Double`, não `double`).
 

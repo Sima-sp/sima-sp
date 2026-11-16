@@ -5,8 +5,8 @@ acumulada**. ⚠️ Os limiares abaixo são PROVISÓRIOS: substituir pelos valor
 Java (``reading/application/RiskClassificationService.java``) para que a comparação no TCC seja
 com a regra que o sistema realmente usa. A parte do sensor (água) não entra no baseline
 histórico porque não há histórico de sensores; ela é aplicada igualmente a todos os modelos via
-``src/sensor_adjust.py`` (sem probabilidade, no modo regras só a medição de transbordamento
-muda o resultado).
+``src/sensor_adjust.py`` (sem probabilidade, no modo regras a água a partir de 80 % sobe um
+nível, até ALTO, e a medição de transbordamento dá CRITICO).
 
 O baseline também é o "modo regras" do serviço quando ainda não existe modelo treinado.
 """

@@ -148,12 +148,40 @@ def test_nenhuma_chance_sem_medicao_vira_critico():
 # --- modo regras (sem probabilidade) ----------------------------------------------------------
 
 
-def test_modo_regras_sem_chance_so_a_medicao_muda():
-    r = ajustar_por_sensor(None, N.MEDIO, 85, None)
-    assert r.probabilidade_final is None and r.fator_sensor is None
-    assert r.nivel_final == N.MEDIO and not r.ajuste_aplicado
-    r = ajustar_por_sensor(None, N.MEDIO, 100, None)
-    assert r.nivel_final == N.CRITICO and r.medicao_transbordando and r.ajuste_aplicado
+@pytest.mark.parametrize(("nivel_regras", "esperado"),
+                         [(N.BAIXO, N.MEDIO), (N.MEDIO, N.ALTO), (N.ALTO, N.ALTO)])
+def test_modo_regras_agua_alta_sobe_um_nivel_ate_alto(nivel_regras, esperado):
+    """Sem chance para multiplicar, a leitura de água continua contando para o nível."""
+    for agua in (80, 85, 99, 99.9):
+        r = ajustar_por_sensor(None, nivel_regras, agua, None)
+        assert r.probabilidade_final is None and r.fator_sensor is None
+        assert r.nivel_final == esperado and r.nivel_modelo == nivel_regras
+        assert r.ajuste_aplicado == (esperado != nivel_regras)
+        assert not r.medicao_transbordando
+        assert len(r.motivos) == 1 and "sobe um nível" in r.motivos[0]
+
+
+def test_modo_regras_agua_abaixo_do_alerta_nao_muda():
+    for agua in (0, 50, 65, 79.9):
+        r = ajustar_por_sensor(None, N.MEDIO, agua, None)
+        assert r.nivel_final == N.MEDIO and not r.ajuste_aplicado and not r.motivos
+        assert r.fator_sensor is None and not r.sem_leitura
+
+
+def test_modo_regras_critico_so_por_medicao():
+    for nivel_regras in (N.BAIXO, N.MEDIO, N.ALTO):
+        for agua in (0, 50, 80, 99, 99.9):
+            assert ajustar_por_sensor(None, nivel_regras, agua, None).nivel_final != N.CRITICO
+        r = ajustar_por_sensor(None, nivel_regras, 100, None)
+        assert r.nivel_final == N.CRITICO and r.medicao_transbordando and r.ajuste_aplicado
+        assert len(r.motivos) == 1 and "transbordando agora (medido)" in r.motivos[0]
+
+
+def test_com_modelo_a_regra_de_subir_um_nivel_nao_entra():
+    """Com chance, só o fator vale: água em 85 % com chance mínima não sobe o nível."""
+    r = _ajustar(0.0001, 85)
+    assert r.nivel_modelo == N.BAIXO and r.nivel_final == N.BAIXO
+    assert all("sobe um nível" not in m for m in r.motivos)
 
 
 def test_modo_regras_sem_leitura():

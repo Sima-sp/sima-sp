@@ -290,7 +290,8 @@ razão de chances do modelo: 1 até 50 %, 2,5 em 65 %, 7 em 80 % e 12 a partir d
 logarítmica entre as linhas; tabela em `config.AJUSTE_SENSOR`, igual à do app). O nível sai da
 chance ajustada e vai no máximo até ALTO (`nivel_previsto`). Água ≥ 100 % = transbordando
 (medido, CRITICO). O sensor nunca diminui a chance nem o nível. Os pesos são escolha do grupo, não
-aprendizado: não há histórico de leituras para treinar. O sensor mede só água.
+aprendizado: não há histórico de leituras para treinar. O sensor mede só água. No modo regras
+não há chance para multiplicar: água em 80 % ou mais sobe um nível, até ALTO.
 
 ### `src/artefatos.py`
 `PacoteModelo` junta estimador, calibrador, features, limiares e metadados; salva e carrega os
@@ -447,7 +448,8 @@ razão de chances) ela vai a 2,2 %, acima do limiar de ALTO (1,19 %).
 | `ajusteSensorAplicado` | a leitura do sensor subiu o **nível** |
 
 No modo regras (sem modelo), `probabilidadeAlagamento`, `probabilidadeModelo` e `fatorSensor`
-vêm `null` e a leitura de água só conta quando o bueiro transborda.
+vêm `null`. A leitura de água continua contando para o nível: a partir de 80 % sobe um nível
+(até ALTO), e em 100 % é CRITICO, medido.
 
 Campos além do briefing (todos aditivos; ver [`docs/adr/0001-contrato-predict.md`](docs/adr/0001-contrato-predict.md)
 e [`docs/adr/0006-regra-do-sensor-e-nivel-critico.md`](docs/adr/0006-regra-do-sensor-e-nivel-critico.md)):

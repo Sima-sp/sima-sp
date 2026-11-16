@@ -216,7 +216,7 @@ def test_modo_regras_sem_modelo(config_sem_modelo, buscador_falso):
     assert corpo["avisos"]
 
 
-def test_modo_regras_vai_ate_alto_e_sensor_so_conta_quando_transborda(config_sem_modelo, buscador_falso):
+def test_modo_regras_vai_ate_alto_e_critico_so_quando_transborda(config_sem_modelo, buscador_falso):
     # 60 mm na última hora: pelas regras provisórias seria CRITICO; agora o teto é ALTO
     cliente, _ = _cliente(config_sem_modelo, buscador_falso(valores_finais=[10.0, 15.0, 60.0]))
     with cliente:
@@ -228,10 +228,33 @@ def test_modo_regras_vai_ate_alto_e_sensor_so_conta_quando_transborda(config_sem
         info = cliente.get("/model-info").json()
     assert sem_sensor["nivelRisco"] == "ALTO" and sem_sensor["fatorSensor"] is None
     assert agua_alta["nivelRisco"] == "ALTO" and agua_alta["fatorSensor"] is None
+    assert agua_alta["ajusteSensorAplicado"] is False  # já estava no teto da previsão
     assert agua_alta["probabilidadeAlagamento"] is None and agua_alta["probabilidadeModelo"] is None
     assert any("modo regras" in a for a in agua_alta["avisos"])
     assert cheio["nivelRisco"] == "CRITICO" and cheio["medicaoTransbordando"] is True
-    assert info["nivelMaximoPrevisao"] == "ALTO" and "ajusteSensor" in info
+    assert info["nivelMaximoPrevisao"] == "ALTO"
+    assert info["ajusteSensor"]["modoRegras"]["nivelAguaAlerta"] == 80
+
+
+def test_modo_regras_agua_alta_sobe_um_nivel(config_sem_modelo, buscador_falso):
+    """Sem modelo a leitura de água continua contando: a partir de 80 % sobe um nível."""
+    pedido = {"latitude": -23.5, "longitude": -46.6}
+
+    def _niveis(valores_finais):
+        cliente, _ = _cliente(config_sem_modelo, buscador_falso(valores_finais=valores_finais))
+        with cliente:
+            return {agua: cliente.post("/predict", json={**pedido, "nivelAgua": agua}).json()
+                    for agua in (40, 79, 80, 99)}
+
+    seco = _niveis([0.0, 0.0, 0.0])
+    assert all(r["nivelRiscoModelo"] == "BAIXO" and r["fatorSensor"] is None for r in seco.values())
+    assert seco[40]["nivelRisco"] == "BAIXO" and seco[79]["nivelRisco"] == "BAIXO"
+    assert seco[40]["ajusteSensorAplicado"] is False and not seco[40]["motivosAjuste"]
+    for agua in (80, 99):
+        assert seco[agua]["nivelRisco"] == "MEDIO" and seco[agua]["ajusteSensorAplicado"] is True
+        assert any("sobe um nível" in m for m in seco[agua]["motivosAjuste"])
+        assert seco[agua]["medicaoTransbordando"] is False
+        assert any("modo regras" in a for a in seco[agua]["avisos"])
 
 
 class _PacoteFixo:
