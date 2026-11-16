@@ -464,7 +464,7 @@ make testar            # ou: python -m pytest -v
 ```
 
 Só com o ambiente do serviço: `pip install -r requirements-servico.lock -r requirements-teste.txt`.
-O CI (`.github/workflows/ci.yml`) roda a suíte assim em todo PR e confere o build da imagem Docker.
+O CI (`.github/workflows/ci.yml`, na raiz do repositório) roda a suíte assim em todo PR e confere o build da imagem Docker.
 
 | Arquivo | Cobre |
 |---|---|

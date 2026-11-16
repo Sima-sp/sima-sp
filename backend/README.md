@@ -5,7 +5,7 @@ Recebe os sensores, guarda leituras e previsões e serve o app e o site.
 
 - Java 21, Spring Boot, Spring Data JPA, Spring Security
 - MySQL 8, com o esquema versionado pelo Flyway (`src/main/resources/db/migration`)
-- Serviço de IA à parte: [`Sima-sp/ml-service`](https://github.com/Sima-sp/ml-service)
+- Serviço de IA à parte: pasta [`ia/`](../ia) deste repositório
 
 ## Rodar
 

@@ -2,7 +2,7 @@
 // Defina no arquivo .env.local (veja .env.example). Tudo tem valor padrão: a página abre sem configuração.
 
 /** Endereço do app publicado, sempre terminando em "/". */
-const urlApp = (process.env.NEXT_PUBLIC_URL_APP || "https://sima-sp.github.io/mobile-app/").replace(/\/*$/, "/");
+const urlApp = (process.env.NEXT_PUBLIC_URL_APP || "https://sima-sp.github.io/sima-sp/app/").replace(/\/*$/, "/");
 
 export const CONFIG = {
   /** O app (mapa de risco). É para onde vão os botões "Abrir o mapa" e o que aparece no telefone da página. */
@@ -11,8 +11,8 @@ export const CONFIG = {
   urlSensor: `${urlApp}sensor.html`,
   instituicao: process.env.NEXT_PUBLIC_INSTITUICAO || "Etec Professor Horácio Augusto da Silveira",
   email: process.env.NEXT_PUBLIC_EMAIL || "guirosseto08@gmail.com",
-  repositorio: process.env.NEXT_PUBLIC_REPOSITORIO || "https://github.com/Sima-sp",
-  /** Subpasta em que a página é publicada (ex.: "/frontend-web" no GitHub Pages). Vazio = raiz. */
+  repositorio: process.env.NEXT_PUBLIC_REPOSITORIO || "https://github.com/Sima-sp/sima-sp",
+  /** Subpasta em que a página é publicada (ex.: "/sima-sp" no GitHub Pages). Vazio = raiz. */
   caminhoBase: process.env.NEXT_PUBLIC_BASE_PATH || "",
 };
 

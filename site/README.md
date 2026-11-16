@@ -8,8 +8,8 @@ escolhido; como funciona (medir, prever, avisar); **o app de verdade rodando num
 quanto a IA acerta; o protótipo do sensor; o que é de verdade e o que é simulado; e o convite
 para abrir o mapa.
 
-O app em si é outro projeto: [`Sima-sp/mobile-app`](https://github.com/Sima-sp/mobile-app),
-publicado em `https://sima-sp.github.io/mobile-app/`.
+O app em si fica na pasta [`app/`](../app) deste repositório, publicado em
+`https://sima-sp.github.io/sima-sp/app/`.
 
 ## Rodar
 
@@ -27,13 +27,13 @@ publicado) ou o app rodando na máquina (ver "Configuração").
 ## Publicar
 
 A cada envio para a branch `main`, o GitHub Actions gera o site e publica no GitHub Pages
-(`.github/workflows/publicar.yml`). O endereço fica em
-`https://sima-sp.github.io/frontend-web/`.
+(`.github/workflows/publicar.yml`, na raiz do repositório, que publica a página e o app juntos).
+O endereço fica em `https://sima-sp.github.io/sima-sp/`.
 
 Para isso o repositório precisa ser **público** (no plano gratuito, o Pages só publica
 repositório público) e estar com o Pages ligado em **Settings → Pages → Source: GitHub Actions**.
 
-A página vive numa subpasta (`/frontend-web`). O fluxo de publicação descobre a subpasta sozinho
+A página vive numa subpasta (`/sima-sp`). O fluxo de publicação descobre a subpasta sozinho
 e a passa em `NEXT_PUBLIC_BASE_PATH`; o `next.config.mjs` usa esse valor como `basePath`. Fora do
 GitHub Pages, `npm run build` gera `out/` para a raiz de qualquer hospedagem estática.
 
@@ -44,11 +44,11 @@ Tudo é opcional e tem valor padrão (`lib/config.js`). Para mudar, copie `.env.
 
 | Variável | Para quê | Padrão |
 |---|---|---|
-| `NEXT_PUBLIC_URL_APP` | Endereço do app: destino dos botões e o que aparece no telefone | `https://sima-sp.github.io/mobile-app/` |
+| `NEXT_PUBLIC_URL_APP` | Endereço do app: destino dos botões e o que aparece no telefone | `https://sima-sp.github.io/sima-sp/app/` |
 | `NEXT_PUBLIC_BASE_PATH` | Subpasta em que a página é publicada | vazio (raiz) |
 | `NEXT_PUBLIC_INSTITUICAO` | Nome da escola no texto do projeto e no rodapé | Etec Professor Horácio Augusto da Silveira |
 | `NEXT_PUBLIC_EMAIL` | Contato do rodapé | o e-mail do grupo em `lib/config.js` |
-| `NEXT_PUBLIC_REPOSITORIO` | Link para o código | `https://github.com/Sima-sp` |
+| `NEXT_PUBLIC_REPOSITORIO` | Link para o código | `https://github.com/Sima-sp/sima-sp` |
 
 Para ver a página com o app da sua máquina no telefone: rode o app (`npm run demo` na pasta
 dele) e use `NEXT_PUBLIC_URL_APP=http://localhost:5173/`.
@@ -78,7 +78,6 @@ styles/
   base.css              tokens dos dois temas (os mesmos do app) e componentes compartilhados
   landing.css           estilos da página (prefixo ld-)
 public/logo-bone.png    a marca
-.github/workflows/      publicação no GitHub Pages
 ```
 
 ## O app dentro da página

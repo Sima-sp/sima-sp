@@ -6,18 +6,15 @@ mede a distância até a água e envia a leitura por Wi-Fi. Junto vem o **servid
 (`{"device":"bueiro_01","distancia":32.4}`) é o contrato entre eles.
 
 Código do grupo do IoT, como usado na feira de 07/10/2026. Até 06/11/2026 ficava na pasta `iot/`
-do `Sima-sp/mobile-app`. O painel que mostra a leitura continua no app (`sensor.html`).
+do app (hoje a pasta `app/` deste repositório). O painel que mostra a leitura continua no app (`sensor.html`).
 
 ```
 ESP32 + sensor ──Wi-Fi──▶ servidor do sensor (Node, porta 3000) ◀── painel do sensor (sima-sensor.html)
-   firmware/                 servidor-sensor/                         Sima-sp/mobile-app, src/sensor/
+   firmware/                 servidor-sensor/                         app/src/sensor/        
 ```
 
-## Como o grupo trabalha
-
-- Ninguém envia direto para a `main`: cada mudança vai numa branch e entra por pull request.
-- O merge é sempre *squash* e a branch é apagada depois.
-- A senha do Wi-Fi e qualquer chave nunca vão para o git.
+A senha do Wi-Fi e qualquer chave nunca vão para o git. O jeito de trabalhar do grupo está no
+[README da raiz](../README.md).
 
 ## Firmware (`firmware/sima_sensor/sima_sensor.ino`)
 
@@ -56,7 +53,7 @@ npm install
 node server.js
 ```
 
-O painel do SIMA vem do app: no [`Sima-sp/mobile-app`](https://github.com/Sima-sp/mobile-app),
+O painel do SIMA vem do app: na pasta [`app/`](../app),
 `npm run painel` gera `dist-painel/sima-sensor.html`; copie para `servidor-sensor/public/` e abra
 `http://localhost:3000/sima-sensor.html`. Ele
 conecta sozinho, sem internet.

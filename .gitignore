@@ -1,0 +1,7 @@
+# Cada pasta tem o seu .gitignore. Aqui, só o que vale para o repositório inteiro.
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,7 +1,7 @@
 # Integração com o serviço de IA (ml-service)
 
 > Módulo `br.com.back_end.simasp.previsao`. O serviço de IA vive em outro repositório
-> (`Sima-sp/ml-service`) e responde em HTTP. Aqui fica só o cliente, o agendador e o
+> (pasta `ia/` deste repositório) e responde em HTTP. Aqui fica só o cliente, o agendador e o
 > armazenamento das previsões.
 
 ## Como funciona

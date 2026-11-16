@@ -64,9 +64,9 @@ um fundo liso. As rotas sempre precisam de internet.
 
 ## Publicar e instalar no celular
 
-O arquivo `.github/workflows/publicar.yml` publica a demonstração no **GitHub Pages** a cada envio
+O arquivo `.github/workflows/publicar.yml` (na raiz do repositório) publica a demonstração no **GitHub Pages** a cada envio
 para a branch `main`: roda os testes, gera o app com `npm run build:demo` e publica a pasta `dist/`.
-O endereço fica `https://<organização>.github.io/<repositório>/`, em `https`.
+Ela sai junto com a página do projeto, na subpasta `app/`: o endereço fica `https://sima-sp.github.io/sima-sp/app/`, em `https`.
 
 Uma vez só, no repositório: **Settings → Pages → Source: GitHub Actions**. Em organização no plano
 gratuito o Pages só funciona em repositório público.
@@ -233,8 +233,8 @@ sistema de verdade se comportar como a demonstração, a mesma conta precisa ent
 
 ## Sensor ao vivo
 
-O código do protótipo (o firmware do ESP32 e o servidor do sensor, do grupo do IoT) fica no
-repositório [`Sima-sp/iot-firmware`](https://github.com/Sima-sp/iot-firmware), com o passo a
+O código do protótipo (o firmware do ESP32 e o servidor do sensor, do grupo do IoT) fica na
+pasta [`iot/`](../iot) deste repositório, com o passo a
 passo para gravar a placa e rodar o servidor.
 
 O **painel do sensor** mostra o protótipo do sensor funcionando, em tempo real: o nível da água
@@ -250,7 +250,7 @@ Há três jeitos de abrir, do mais garantido na bancada ao mais prático:
 | Jeito | Endereço | Precisa de |
 |---|---|---|
 | **Arquivo único dentro do servidor do sensor** | `http://localhost:3000/sima-sensor.html` (ou `http://ENDEREÇO-DO-COMPUTADOR:3000/sima-sensor.html` de qualquer aparelho da mesma rede) | Copiar `dist-painel/sima-sensor.html` (gerado por `npm run painel`) para a pasta `public` do servidor do sensor. Conecta sozinho, sem internet e sem permissão do navegador |
-| Página publicada | `https://sima-sp.github.io/mobile-app/sensor.html` | Internet, o servidor do sensor no mesmo computador e permitir o acesso à rede local quando o Chrome perguntar |
+| Página publicada | `https://sima-sp.github.io/sima-sp/app/sensor.html` | Internet, o servidor do sensor no mesmo computador e permitir o acesso à rede local quando o Chrome perguntar |
 | Na pasta do app | `npm run demo` e `http://localhost:5173/sensor.html` | Node instalado; aceita o servidor do sensor em outro computador (endereço em "Ajustes do sensor") |
 
 **O caminho da leitura.** O protótipo mede a distância do sensor até a água (em cm) e envia pelo

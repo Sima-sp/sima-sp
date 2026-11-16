@@ -2,7 +2,7 @@
 const nextConfig = {
   // Gera HTML estático em out/: hospeda em qualquer lugar (GitHub Pages, Netlify, Vercel ou o próprio Spring).
   output: "export",
-  // Publicada numa subpasta (GitHub Pages em https://sima-sp.github.io/frontend-web/), a página
+  // Publicada numa subpasta (GitHub Pages em https://sima-sp.github.io/sima-sp/), a página
   // precisa saber disso para achar os próprios arquivos. O fluxo de publicação define a variável.
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   images: { unoptimized: true },
