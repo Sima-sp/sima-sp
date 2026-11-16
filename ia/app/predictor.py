@@ -3,12 +3,13 @@
 Fluxo de ``Preditor.prever``::
 
     request ──► hora de referência (hora cheia anterior, UTC)
-            ──► chuva: chuvaHoraria (informada) | Open-Meteo/cache | resumo informado | chuvaMm (legado)
+            ──► chuva: chuvaHoraria (informada) | Open-Meteo/cache | resumo informado
             ──► características do ponto mais próximo
             ──► src.features.features_ao_vivo  (MESMO código do treino)
-            ──► modelo + calibração ─► probabilidade ─► nível (limiares do modelo)
-                (sem modelo: baseline de regras ─► nível, probabilidade = null)
-            ──► src.sensor_adjust (água/lixo) ─► nível final
+            ──► modelo + calibração ─► probabilidadeModelo ─► nivelRiscoModelo (BAIXO a ALTO)
+                (sem modelo: baseline de regras ─► nível até ALTO, probabilidade = null)
+            ──► src.sensor_adjust: água × fator na razão de chances ─► probabilidade e nível
+                finais; água em 100 % ─► CRITICO (medição) — ADR 0006
             ──► resposta com geradaEm/validaAte, fonte da chuva e avisos
 
 Falhas viram ``ErroPrevisao`` com um código estável, que o backend usa para cair nas regras.
@@ -35,10 +36,17 @@ from app.schemas import (
 )
 from src.artefatos import PacoteModelo, carregar_pacote, existe_pacote
 from src.baseline import BaselineRegras
-from src.config import JANELA_PREVISAO_HORAS, caminho_pontos_modelo
-from src.regioes import MIN_PONTOS_REGIAO, agregar_por_regiao, anotar_regiao
+from src.config import AJUSTE_SENSOR, JANELA_PREVISAO_HORAS, caminho_pontos_modelo
 from src.features import features_ao_vivo
-from src.niveis import nivel_por_probabilidade, valor_contrato, validar_limiares
+from src.niveis import (
+    NIVEL_MAXIMO,
+    limiares_em_uso,
+    nivel_previsto,
+    nota_nivel_critico,
+    validar_limiares,
+    valor_contrato,
+)
+from src.regioes import MIN_PONTOS_REGIAO, agregar_por_regiao, anotar_regiao
 from src.sensor_adjust import ajustar_por_sensor
 from src.tempo import agora_utc, garantir_utc, hora_referencia, para_iso_local
 
@@ -55,6 +63,10 @@ class ErroPrevisao(Exception):
 
 def _float_ou_none(valor) -> float | None:
     return None if valor is None or pd.isna(valor) else round(float(valor), 2)
+
+
+def _arredondar(valor: float | None, casas: int = 4) -> float | None:
+    return None if valor is None else round(float(valor), casas)
 
 
 class Preditor:
@@ -104,16 +116,31 @@ class Preditor:
     def modelo_versao(self) -> str:
         return self.pacote.versao if self.pacote else "regras-v0"
 
+    @staticmethod
+    def _info_niveis_e_sensor() -> dict:
+        """O que vale para os níveis e para o sensor em qualquer modo (ADR 0006)."""
+        return {
+            "nivelMaximoPrevisao": NIVEL_MAXIMO.value,
+            "nivelCritico": nota_nivel_critico()["critico"],
+            "ajusteSensor": {
+                "regra": "fator sobre a razão de chances p/(1-p); escolha do grupo, não aprendido",
+                "fatorPorNivelAgua": [list(linha) for linha in AJUSTE_SENSOR["fator_por_nivel_agua"]],
+                "nivelAguaTransbordando": AJUSTE_SENSOR["nivel_agua_transbordando"],
+            },
+        }
+
     def info_modelo(self) -> dict:
         if not self.pacote:
             return {"modeloVersao": self.modelo_versao, "origem": self.origem.value,
                     "descricao": "Sem modelo treinado: baseline de regras de chuva acumulada.",
-                    "limiaresRegras": self.baseline.limiares}
+                    "limiaresRegras": self.baseline.limiares, **self._info_niveis_e_sensor()}
         meta = self.pacote.metadados
         return {
             "modeloVersao": self.pacote.versao, "origem": self.origem.value,
             "nomeModelo": self.pacote.nome_modelo, "features": self.pacote.features,
-            "limiares": self.pacote.limiares, "janelaHoras": JANELA_PREVISAO_HORAS,
+            "limiares": self.pacote.limiares, "limiaresEmUso": limiares_em_uso(self.pacote.limiares),
+            **self._info_niveis_e_sensor(),
+            "janelaHoras": JANELA_PREVISAO_HORAS,
             "treinadoEm": meta.get("treinado_em"), "periodo": meta.get("periodo"),
             "divisao": meta.get("divisao"), "fonteChuva": meta.get("fonte_chuva"),
             "raioRotuloM": meta.get("raio_rotulo_m"), "calibracao": meta.get("calibracao"),
@@ -219,7 +246,8 @@ class Preditor:
         regioes = []
         for linha in resumo.itertuples(index=False):
             coberta = linha.cobertura == "COBERTA"
-            nivel = nivel_por_probabilidade(float(linha.probabilidade), self.limiares_regiao)
+            # Sem sensor na região: o nível vai no máximo até ALTO (ADR 0006).
+            nivel = nivel_previsto(float(linha.probabilidade), self.limiares_regiao)
             regioes.append(RegiaoRisco(
                 regiaoId=linha.regiao_id,
                 regiao=linha.regiao_nome,
@@ -264,9 +292,6 @@ class Preditor:
         if serie is None:
             if resumo:
                 return None, resumo, FonteChuva.INFORMADA, avisos
-            if req.chuvaMm is not None:
-                avisos.append("apenas chuvaMm informado (legado); tratado como chuva da última hora")
-                return None, {"chuva_1h": req.chuvaMm}, FonteChuva.INFORMADA_LEGADO, avisos
             raise ErroPrevisao("CHUVA_INDISPONIVEL",
                                "Sem chuva recente (Open-Meteo e cache indisponíveis) e nenhuma chuva informada",
                                503)
@@ -290,22 +315,25 @@ class Preditor:
 
         if self.pacote:
             probabilidade = float(self.pacote.prever_probabilidade(linha)[0])
-            nivel_modelo = nivel_por_probabilidade(probabilidade, self.pacote.limiares)
+            nivel_modelo = nivel_previsto(probabilidade, self.pacote.limiares)
+            limiares = self.pacote.limiares
         else:
             probabilidade = None
             nivel_modelo = self.baseline.nivel(registro)
+            limiares = None
 
-        chuva_3h = _float_ou_none(registro.get("chuva_3h"))
-        chuva_prevista = _float_ou_none(registro.get("chuva_prevista_3h"))
-        chuva_recente = max(chuva_3h or 0.0, req.chuvaMm or 0.0)
-        ajuste = ajustar_por_sensor(nivel_modelo, req.nivelAgua, req.porcentagemLixo,
-                                    chuva_recente, chuva_prevista)
+        ajuste = ajustar_por_sensor(probabilidade, nivel_modelo, req.nivelAgua, limiares)
+        if probabilidade is None and req.nivelAgua is not None and not ajuste.medicao_transbordando:
+            avisos.append("modo regras: sem probabilidade, a leitura do sensor só muda o nível "
+                          "quando o bueiro transborda")
 
         acento = self.config.nivel_risco_com_acento
         gerada = agora.floor("s")
         return RespostaPrevisao(
             sensorId=req.sensorId,
-            probabilidadeAlagamento=None if probabilidade is None else round(probabilidade, 4),
+            probabilidadeAlagamento=_arredondar(ajuste.probabilidade_final),
+            probabilidadeModelo=_arredondar(ajuste.probabilidade_modelo),
+            fatorSensor=_arredondar(ajuste.fator_sensor),
             nivelRisco=valor_contrato(ajuste.nivel_final, acento),
             nivelRiscoModelo=valor_contrato(ajuste.nivel_modelo, acento),
             janelaHoras=JANELA_PREVISAO_HORAS,
@@ -317,8 +345,8 @@ class Preditor:
             motivosAjuste=ajuste.motivos,
             semLeituraSensor=ajuste.sem_leitura,
             fonteChuva=fonte,
-            chuvaRecente3hMm=chuva_3h,
-            chuvaPrevista3hMm=chuva_prevista,
+            chuvaRecente3hMm=_float_ou_none(registro.get("chuva_3h")),
+            chuvaPrevista3hMm=_float_ou_none(registro.get("chuva_prevista_3h")),
             origem=self.origem,
             modeloVersao=self.modelo_versao,
             pontoId=ponto_id,

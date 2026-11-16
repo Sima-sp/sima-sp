@@ -118,8 +118,22 @@ def test_endpoint_de_regioes(config_regioes, buscador_falso):
         if regiao["cobertura"] == "SEM_COBERTURA":
             assert regiao["nivelRisco"] is None  # sem cobertura nunca vira nível
         else:
-            assert regiao["nivelRisco"] in {"BAIXO", "MEDIO", "ALTO", "CRITICO"}
+            assert regiao["nivelRisco"] in {"BAIXO", "MEDIO", "ALTO"}  # sem sensor, nunca CRITICO
             assert regiao["pontoId"]
+
+
+def test_regioes_nunca_devolvem_critico(config_regioes, buscador_falso):
+    """#23: mesmo com o risco da região acima do limiar CRITICO do arquivo, o nível é ALTO."""
+    caminho = config_regioes.dir_modelos / "thresholds_regiao_teste.json"
+    caminho.write_text(json.dumps({"limiares": {"MEDIO": 1e-6, "ALTO": 2e-6, "CRITICO": 3e-6}}),
+                       encoding="utf-8")
+    preditor = Preditor(config_regioes, servico_chuva=ServicoChuva(buscador=buscador_falso()))
+    with TestClient(criar_app(preditor)) as cliente:
+        corpo = cliente.post("/predict/regioes", json={"chuvaHoraria": FORTE}).json()
+
+    cobertas = [r for r in corpo["regioes"] if r["cobertura"] == "COBERTA"]
+    assert cobertas and all(r["probabilidadeMaxima"] >= 3e-6 for r in cobertas)
+    assert {r["nivelRisco"] for r in cobertas} == {"ALTO"}
 
 
 def test_sem_limiares_de_regiao_o_alerta_fica_desligado(config_com_modelo, buscador_falso):

@@ -40,16 +40,17 @@ public record FloodPredictionRequest(
         double latitude,
         double longitude,
         OffsetDateTime timestamp,     // opcional
-        Double nivelAgua,             // null quando o sensor está sem leitura
-        Double porcentagemLixo,
-        Double chuvaMm                // legado; ver docs/recomendacoes.md (R8)
+        Double nivelAgua              // null quando o sensor está sem leitura
 ) {}
+// porcentagemLixo e chuvaMm saíram do contrato (ADR 0006). Se ainda vierem, o serviço ignora.
 
 public record FloodPredictionResponse(
         Long sensorId,
-        Double probabilidadeAlagamento,   // Double: vem null no modo REGRAS (R7)
-        RiskLevel nivelRisco,
-        RiskLevel nivelRiscoModelo,
+        Double probabilidadeAlagamento,   // depois do sensor; null no modo REGRAS (R7)
+        Double probabilidadeModelo,       // só chuva e lugar (calibrada); null no modo REGRAS
+        Double fatorSensor,               // fator da água sobre a razão de chances; null no modo REGRAS
+        RiskLevel nivelRisco,             // BAIXO a ALTO pela chance; CRITICO só por medição
+        RiskLevel nivelRiscoModelo,       // BAIXO a ALTO
         int janelaHoras,
         OffsetDateTime geradaEm,
         OffsetDateTime validaAte,
@@ -68,7 +69,8 @@ public record BatchItem(Long sensorId, boolean sucesso, FloodPredictionResponse 
                         String erro, String codigoErro) {}
 ```
 
-- `RiskLevel` precisa ter `BAIXO, MEDIO, ALTO, CRITICO` (sem acento, R6).
+- `RiskLevel` precisa ter `BAIXO, MEDIO, ALTO, CRITICO` (sem acento, R6). O enum não muda, mas
+  CRITICO só aparece com `medicaoTransbordando = true` (ADR 0006).
 - Configure o Jackson para **ignorar campos desconhecidos**
   (`spring.jackson.deserialization.fail-on-unknown-properties=false`), assim campos novos do
   serviço não quebram o backend.
@@ -136,7 +138,7 @@ void atualizarPrevisoes() {
     var sensores = sensorRepository.findByStatusIn(List.of(ACTIVE, MAINTENANCE));
     var itens = sensores.stream().map(s -> {
         var ultima = s.getStatus() == ACTIVE ? readingRepository.findTopBySensorOrderByTimestampDesc(s) : null;
-        return FloodPredictionRequest.of(s, ultima);   // MAINTENANCE -> sem nivelAgua/porcentagemLixo
+        return FloodPredictionRequest.of(s, ultima);   // MAINTENANCE -> sem nivelAgua
     }).toList();
     // POST /predict/batch (1 chamada); para itens com sucesso=false -> regras
     // salvar Prediction e chamar AlertService
@@ -149,6 +151,8 @@ Recálculo por leitura nova: no `ReadingService`, depois de salvar a leitura, ch
 ## 6. Alertas
 
 - Criar alerta quando `nivelRisco` for ALTO ou CRITICO **e** não existir alerta ACTIVE para o sensor.
+  (Decisão posterior do grupo, #13: o alerta nasce da **leitura** do sensor. Desde a ADR 0006,
+  CRITICO na previsão sempre vem de medição.)
 - Sugestão: adicionar `origem` ao `Alert` (**PREVISTO** × **MEDIDO**). `medicaoTransbordando = true`
   gera um alerta MEDIDO. Se já existir um alerta PREVISTO ativo, ele passa a MEDIDO em vez de
   duplicar.
@@ -165,7 +169,7 @@ Recálculo por leitura nova: no `ReadingService`, depois de salvar a leitura, ch
     "sensorId": 12, "latitude": -23.5152, "longitude": -46.5841, "bairro": "Vila Maria",
     "statusPrevisao": "VALIDA",
     "previsao": { "probabilidade": 0.72, "nivelRisco": "ALTO", "geradaEm": "...", "validaAte": "...", "fonte": "IA" },
-    "medido": { "nivelAgua": 82.0, "porcentagemLixo": 64.0, "lidoEm": "...", "semLeitura": false }
+    "medido": { "nivelAgua": 82.0, "lidoEm": "...", "semLeitura": false }
   }
 ]
 ```
@@ -183,5 +187,6 @@ por sensor (índice `(sensor_id, gerada_em)`).
 - [ ] agendador de 10 min usando `/predict/batch`
 - [ ] recálculo ao receber leitura
 - [ ] alerta ALTO/CRITICO sem duplicar
+- [ ] `probabilidadeModelo` e `fatorSensor` guardados; lixo e `chuvaMm` fora do pedido (#18)
 - [ ] `GET /api/public/mapa-risco` com `statusPrevisao`
 - [ ] limiares do `RiskClassificationService` copiados para `src/baseline.py`

@@ -151,15 +151,21 @@ METAS_LIMIARES = {
     "CRITICO": {"precisao_min": 0.50},
 }
 
+# A previsão vai no máximo até ALTO. CRITICO é sempre MEDIÇÃO (água do bueiro em 100 %).
+# O limiar CRITICO continua nos arquivos thresholds_*.json só como histórico: o modelo v1 não
+# alcançou a precisão pedida para ele (ver docs/adr/0006-regra-do-sensor-e-nivel-critico.md).
+NIVEL_MAXIMO_PREVISAO = "ALTO"
+
 # ---------------------------------------------------------------------------
-# Ajuste pelo sensor (seção 7.5) — regra, não treinada
+# Ajuste pelo sensor (seção 7.5) — regra escolhida pelo grupo, não treinada (ADR 0006)
 # ---------------------------------------------------------------------------
 AJUSTE_SENSOR = {
-    "nivel_agua_transbordando": 100.0,  # >= : medição "transbordando agora" => CRITICO
-    "nivel_agua_alerta": 80.0,  # >= : sobe um nível
-    "lixo_alerta": 60.0,  # >= (com chuva) : sobe um nível
-    "chuva_minima_mm": LIMIAR_CHUVA_MM,  # "chuva prevista/recente > 0"
-    "acumular": True,  # água alta + lixo alto sobem dois níveis
+    # >= : medição "transbordando agora" => CRITICO (é medição, não previsão)
+    "nivel_agua_transbordando": 100.0,
+    # (água no bueiro em %, fator sobre a razão de chances). Até a primeira linha o fator é 1;
+    # entre duas linhas ele cresce em escala logarítmica; depois da última fica no último valor.
+    # Mesma tabela do app (AGUA_PARA_FATOR, em app/src/dados/demo.js).
+    "fator_por_nivel_agua": ((50.0, 1.0), (65.0, 2.5), (80.0, 7.0), (99.0, 12.0)),
 }
 
 # ---------------------------------------------------------------------------

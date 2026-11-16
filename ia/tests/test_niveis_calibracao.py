@@ -7,8 +7,10 @@ from src.calibracao import Calibrador, escolher_limiares
 from src.niveis import (
     NivelRisco,
     carregar_limiares,
+    limiares_em_uso,
     niveis_por_probabilidade,
     nivel_por_probabilidade,
+    nivel_previsto,
     salvar_limiares,
     subir_nivel,
     validar_limiares,
@@ -31,6 +33,18 @@ def test_versao_vetorizada_bate_com_escalar():
     vet = niveis_por_probabilidade(probs, LIM)
     esc = [nivel_por_probabilidade(p, LIM).ordem for p in probs]
     assert list(vet) == esc
+
+
+@pytest.mark.parametrize("p,esperado", [
+    (0.0, "BAIXO"), (0.15, "MEDIO"), (0.40, "ALTO"), (0.70, "ALTO"), (1.0, "ALTO"),
+])
+def test_previsao_vai_no_maximo_ate_alto(p, esperado):
+    """#23: o limiar CRITICO fica no arquivo, mas a previsão não passa de ALTO."""
+    assert nivel_previsto(p, LIM).value == esperado
+
+
+def test_limiares_em_uso_sem_critico():
+    assert limiares_em_uso(LIM) == {"MEDIO": 0.15, "ALTO": 0.40}
 
 
 def test_subir_nivel_tem_teto():

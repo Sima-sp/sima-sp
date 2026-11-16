@@ -65,7 +65,7 @@ from src.modelos import (
     pontuacao,
     treinar_lightgbm,
 )
-from src.niveis import niveis_por_probabilidade
+from src.niveis import niveis_por_probabilidade, nota_nivel_critico
 
 log = logging.getLogger(__name__)
 
@@ -228,12 +228,14 @@ def treinar(
                 "metricas_validacao": resultados_val[principal],
                 "metricas_teste": teste_principal,
                 "contagens": resumo.get("por_split"),
+                "uso_no_servico": nota_nivel_critico(),
                 **extras,
             },
         )
         pontos_modelo = montar_pontos_modelo(dataset, versao_dataset)
         caminhos = salvar_pacote(pacote, pontos_modelo, DIR_MODELOS,
-                                 extras_limiares={"estrategia": estrategia_limiares, "diagnostico": diag})
+                                 extras_limiares={"estrategia": estrategia_limiares, "diagnostico": diag,
+                                                  "uso_no_servico": nota_nivel_critico()})
         log.info("Modelo salvo: %s", {k: str(v) for k, v in caminhos.items()})
         _limiares_de_regiao(dataset, pontos_modelo, p_val_por_modelo[principal],
                             p_teste_por_modelo[principal], versao_modelo)
@@ -294,7 +296,8 @@ def _limiares_de_regiao(dataset: pd.DataFrame, pontos: pd.DataFrame, p_val, p_te
     (DIR_MODELOS / f"thresholds_regiao_{versao_modelo}.json").write_text(
         json.dumps({"limiares": limiares, "estrategia": "metas_regiao",
                     "min_pontos_regiao": MIN_PONTOS_REGIAO, "regioes_cobertas": sorted(cobertas),
-                    "diagnostico": diag}, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+                    "diagnostico": diag, "uso_no_servico": nota_nivel_critico()},
+                   indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     log.info("Limiares de região salvos: %s", limiares)
 
 

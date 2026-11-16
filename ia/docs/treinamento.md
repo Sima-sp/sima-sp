@@ -88,11 +88,20 @@ O teste **nunca** é usado para escolher nada.
 - **Calibração**: curva por decis (probabilidade média × frequência observada).
 - Todas também para a **Zona Norte**.
 
-## 9. Ajuste pelo sensor
+## 9. Leitura do sensor e nível crítico
 
-Regra não treinada, aplicada sobre o nível do modelo: água ≥ 100 % = transbordando (medição,
-CRITICO); água ≥ 80 % sobe um nível; lixo ≥ 60 % com chuva sobe um nível. O ajuste nunca desce
-o nível e tem teto em CRITICO. A probabilidade não muda. A regra é validada com o simulador.
+Regra escolhida pelo grupo, não treinada (ADR 0006): não existe histórico de leituras de sensor.
+A água no bueiro vira um fator sobre a razão de chances `p / (1 − p)` do modelo: 1 até 50 %, 2,5
+em 65 %, 7 em 80 % e 12 a partir de 99 %, crescendo em escala logarítmica entre essas linhas. O
+nível sai da chance ajustada. O sensor nunca diminui a chance nem o nível. É a mesma conta do
+simulador do app.
+
+A previsão vai no máximo até ALTO. O limiar CRITICO escolhido no treino (0,25, precisão-alvo de
+50 % inalcançável) fica no arquivo só como histórico: no teste ele apareceu em 0,0009 % das horas
+e acertou 4,8 % das vezes. CRITICO passou a ser só medição: água em 100 % ("transbordando agora").
+
+Todas as métricas desta seção e da próxima se referem à probabilidade **do modelo**
+(`probabilidadeModelo`), que é a calibrada; a chance depois do sensor não é calibrada.
 
 ## 10. Reprodutibilidade
 

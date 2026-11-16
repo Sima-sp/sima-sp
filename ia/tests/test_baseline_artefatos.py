@@ -15,6 +15,8 @@ def test_baseline_maior_nivel_entre_janelas():
     assert list(base.niveis(df)) == [0, 1, 2, 3]
     assert np.allclose(base.pontuacao(df), [0, 1 / 3, 2 / 3, 1])
     assert base.nivel({"chuva_1h": 16, "chuva_3h": 16}) == NivelRisco.ALTO
+    # modo regras do serviço: vai no máximo até ALTO (#23); a régua de 4 níveis fica para os relatórios
+    assert base.nivel({"chuva_1h": 31}) == NivelRisco.ALTO
 
 
 def test_pacote_ida_e_volta(diretorio_modelo, dataset_sintetico):
