@@ -33,7 +33,7 @@ const PASSOS = [
   { titulo: "O sensor entra na conta",
     texto: "Bueiro enchendo multiplica essa chance: é o sinal de que ali a água já não escoa. Bueiro cheio vira “Transbordando agora”, que é medição, não previsão." },
   { titulo: "A chance vira um nível", niveis: true,
-    texto: `Médio a partir de ${LIMIARES_EM_TEXTO[2]}, alto a partir de ${LIMIARES_EM_TEXTO[3]} e crítico a partir de ${LIMIARES_EM_TEXTO[4]}. É o nível que aparece na tampa.` },
+    texto: `Médio a partir de ${LIMIARES_EM_TEXTO[2]} e alto a partir de ${LIMIARES_EM_TEXTO[3]}. É o nível que aparece na tampa. A previsão vai até alto: crítico não é previsão, só aparece quando o sensor mede o bueiro cheio.` },
 ];
 
 export default function ComoFunciona() {

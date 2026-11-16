@@ -102,5 +102,8 @@ resposta traz um aviso. Antes, água ≥ 80 % subia um nível também no modo re
   serviço.
 - Sem Open-Meteo e sem cache, `chuvaMm` não serve mais de chuva: a resposta é 503
   `CHUVA_INDISPONIVEL`, como já acontecia sem `chuvaMm`.
-- O app precisa seguir as duas regras na demonstração e na tela "Como a IA funciona" (#40): hoje
-  ele ainda mostra crítico pela chance.
+- A demonstração do app e a tela "Como a IA funciona" seguem as duas regras (#40, feita junto):
+  a previsão vai até alto e nenhum bueiro fica crítico sem estar transbordando. Os casos do fator
+  são os mesmos em `app/src/dados/demo.test.js` e em `tests/test_sensor_adjust.py`.
+- Fica uma diferença pequena: o app usa os limiares arredondados (0,41 % e 1,19 %) e o serviço, os
+  valores completos do arquivo. Uma chance entre os dois dá um nível de diferença.

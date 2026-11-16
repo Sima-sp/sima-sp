@@ -28,7 +28,8 @@ test("a mesma chuva dá mais chance no lugar que mais alaga", () => {
     const chances = LUGARES_DO_SIMULADOR.map((lugar) => responder(entrada(id), lugar).probabilidade);
     assert.ok(chances[0] < chances[1] && chances[1] < chances[2], id);
   }
-  assert.equal(responder(entrada("temporal"), muito).nivel, 4);
+  // A previsão vai até alto, mesmo no temporal e no lugar que mais alaga.
+  assert.equal(responder(entrada("temporal"), muito).nivel, 3);
   assert.ok(responder(entrada("temporal"), pouco).nivelModelo <= 2);
 });
 
@@ -59,7 +60,8 @@ test("o nível sai da chance final: mexer no sensor pode mudar o nível", () => 
 test("a chance nunca passa de 100%, e a frase diz o quanto ela cresceu de verdade", () => {
   const r = responder({ chuva: 1, agua: 99 }, muito);
   assert.ok(r.probabilidade > 0.8 && r.probabilidade < 1);
-  assert.equal(r.nivel, 4);
+  assert.equal(r.nivel, 3, "chance de mais de 80% ainda é previsão: alto, não crítico");
+  assert.equal(r.medicaoTransbordando, false);
   // Com 31% só pela chuva, a chance não tem como ficar 12 vezes maior: a frase usa o crescimento real.
   const cresceu = r.probabilidade / r.probabilidadeSemSensor;
   assert.ok(cresceu > 2 && cresceu < 3.3);
@@ -79,6 +81,19 @@ test("água em 100% é transbordando: crítico e medido, em qualquer lugar e com
   assert.equal(r.medicaoTransbordando, true);
   assert.equal(r.passos.find((p) => p.id === "agua").efeito, "medido");
   assert.match(fraseDoResultado(r), /medição, e vale mais que qualquer previsão/);
+});
+
+test("crítico só por medição: nenhuma combinação de chuva, lugar e água abaixo de 100% dá crítico", () => {
+  for (const lugar of LUGARES_DO_SIMULADOR) {
+    for (let chuva = 0; chuva <= 100; chuva += 5) {
+      for (let agua = 0; agua <= 100; agua += 1) {
+        const r = responder({ chuva: chuva / 100, agua }, lugar);
+        assert.equal(r.nivel === 4, agua === 100, `${lugar.nome} chuva ${chuva} água ${agua}`);
+        assert.equal(r.medicaoTransbordando, agua === 100);
+        assert.ok(r.nivelModelo <= 3);
+      }
+    }
+  }
 });
 
 test("os nomes da chuva e a conversão de milímetros para força", () => {
