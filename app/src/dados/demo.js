@@ -17,13 +17,13 @@
 //      O sensor não é só um medidor: ele faz parte da previsão. (O sensor do SIMA mede só a água;
 //      o lixo saiu do projeto em 06/10/2026.)
 //      Os pesos são uma regra do grupo, não algo aprendido (ver chanceComSensor, abaixo).
-//   4. A chance final vira nível pelos limiares reais do modelo v1 (médio a partir de 0,41 %,
-//      alto a partir de 1,19 %, crítico a partir de 25 %). Água em 100 % é "transbordando agora":
-//      crítico, e aí é medição, não previsão.
+//   4. A chance final vira nível pelos limiares reais do modelo v1 (médio a partir de 0,41 % e
+//      alto a partir de 1,19 %). A PREVISÃO VAI ATÉ ALTO: por maior que seja a chance, ela não
+//      vira crítico. Crítico é só MEDIÇÃO: água em 100 %, "transbordando agora".
 //
-// DIFERENÇA PARA O SERVIÇO DE IA DE HOJE (ml-service v1): lá o modelo calcula a chance só com a
-// chuva e o lugar, e a leitura do sensor sobe o NÍVEL por regra, sem mexer na porcentagem. Aqui a
-// leitura entra na própria chance, que é o desenho que o projeto quer. Está no README.
+// É A MESMA REGRA DO SERVIÇO DE IA (ia/src/sensor_adjust.py, ADR 0006 da IA): o mesmo fator da
+// água, na mesma conta, e crítico só por medição. Os casos de teste do fator são os mesmos nos
+// dois lados (demo.test.js aqui, tests/test_sensor_adjust.py lá): mudou a tabela, mudam os dois.
 //
 // Ao trocar o clima nada muda de uma vez: a chuva "entra" pela cidade de oeste para leste e cada
 // ponto leva alguns segundos para chegar ao novo estado.
@@ -40,8 +40,12 @@ export const CLIMAS = [
   { id: "chuva-extrema", rotulo: "Chuva extrema", intensidade: 1 },
 ];
 
-/** Limiares de probabilidade do modelo v1 (ml-service/models/thresholds_v1.json). */
-export const LIMIARES = { medio: 0.0041, alto: 0.0119, critico: 0.25 };
+/**
+ * Limiares de probabilidade do modelo v1 (ia/models/thresholds_v1.json). Só médio e alto: o
+ * arquivo ainda guarda o do crítico (0,25), mas ele deixou de ser usado, porque crítico é só
+ * medição do sensor.
+ */
+export const LIMIARES = { medio: 0.0041, alto: 0.0119 };
 
 /** Quanto tempo a frente de chuva leva para cruzar a cidade e quanto cada ponto leva para mudar. */
 const TRAVESSIA_MS = 7000;
@@ -140,7 +144,7 @@ const PRESSAO_PARA_CHANCE = [
   [0.28, LIMIARES.medio],
   [0.6, LIMIARES.alto],
   [0.7, 0.11],
-  [0.88, LIMIARES.critico],
+  [0.88, 0.25],
   [1.2, 0.6],
 ];
 
@@ -158,8 +162,8 @@ function chancePelaPressao(pressao) {
   return tabela[0][1];
 }
 
+/** Nível de uma previsão: vai até alto (3). Crítico (4) só sai de medição, em preverComSensor. */
 function nivelPelaChance(probabilidade) {
-  if (probabilidade >= LIMIARES.critico) return 4;
   if (probabilidade >= LIMIARES.alto) return 3;
   if (probabilidade >= LIMIARES.medio) return 2;
   return 1;
@@ -226,8 +230,8 @@ export function chanceComSensor(chancePelaChuva, { agua }) {
 
 /**
  * A previsão completa de um bueiro: chuva e lugar (previsaoPelaChuva) mais a leitura do sensor
- * (chanceComSensor). O nível sai da chance final pelos limiares do modelo. Água em 100 % é
- * "transbordando agora": aí é medição, e o nível é crítico.
+ * (chanceComSensor). O nível sai da chance final pelos limiares do modelo e vai até alto. Água
+ * em 100 % é "transbordando agora": aí é medição, e é o único caminho para o nível crítico.
  * @returns {{ probabilidade, probabilidadeSemSensor, nivelModelo, nivel, medicaoTransbordando, fatorAgua }}
  *   nivelModelo é o nível que a chuva e o lugar dariam sozinhos, sem o sensor
  */

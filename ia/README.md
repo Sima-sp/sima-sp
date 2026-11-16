@@ -2,8 +2,9 @@
 
 Serviço Python do **SIMA-SP** (Sistema Inteligente de Monitoramento de Alagamentos em São Paulo,
 TCC). Ele estima a **probabilidade de alagamento nas próximas 3 horas** para cada ponto
-monitorado (bueiro, boca de lobo, via crítica) e devolve um **nível de risco**
-(BAIXO / MEDIO / ALTO / CRITICO). O backend Java chama o serviço por HTTP.
+monitorado (bueiro, boca de lobo, via crítica), junta a leitura de água do sensor nessa conta e
+devolve um **nível de risco**: BAIXO / MEDIO / ALTO pela previsão, e CRITICO só quando o sensor
+**mede** o bueiro transbordando (ADR 0006). O backend Java chama o serviço por HTTP.
 
 > Documento-base: `BRIEFING_IA_SIMA-SP.md`. Este README explica **como o código implementa o
 > briefing**. Os pontos em que a implementação diverge do briefing estão em
@@ -38,7 +39,7 @@ monitorado (bueiro, boca de lobo, via crítica) e devolve um **nível de risco**
 | Coletores (CGE, GeoSampa, Open-Meteo, boletins) | ✅ **conferidos na fonte real em 16/09/2026** (HTML do CGE 2011–2026, camadas do GeoSampa, modelos do Open-Meteo) |
 | Pontos recorrentes, rótulo, features, dataset | ✅ pronto e testado com dados sintéticos |
 | Baseline, regressão logística, LightGBM, Random Forest, calibração, limiares, métricas | ✅ pronto e testado com dados sintéticos |
-| Ajuste pelo sensor | ✅ pronto e testado |
+| Sensor na chance (fator sobre a razão de chances, ADR 0006) | ✅ pronto e testado; mesma conta do app |
 | API FastAPI (`/health`, `/model-info`, `/predict`, `/predict/batch`, `/predict/regioes`) | ✅ pronta; sobe em **modo regras** enquanto não há modelo |
 | **Dados reais** (`data/`) | 🔄 em coleta: CGE e GeoSampa baixados; geocodificação em andamento (ver [`docs/coleta-dados.md`](docs/coleta-dados.md)) |
 | Modelo v1 treinado (`models/`) | ⏳ depende do dataset |
@@ -78,8 +79,8 @@ validado com dados sintéticos e serviço rodando em Docker (`make docker`, `/he
 | Unidade | 1 linha = 1 ponto × 1 hora cheia `t` (UTC) |
 | Rótulo `alagou_3h` | alagamento registrado a ≤ `RAIO_ROTULO_M` (300 m) com início em **(t, t+3h]** |
 | Janela | 3 h, fixa (`JANELA_PREVISAO_HORAS`) |
-| Saída | `probabilidadeAlagamento` (0–1, calibrada) + `nivelRisco` |
-| Medido × previsto | `nivelAgua ≥ 100 %` é **medição** (`medicaoTransbordando`); a probabilidade é **previsão** |
+| Saída | `probabilidadeModelo` (0–1, calibrada, só chuva e lugar), `probabilidadeAlagamento` (depois do sensor) + `nivelRisco` |
+| Medido × previsto | `nivelAgua ≥ 100 %` é **medição** (`medicaoTransbordando`, único caminho para CRITICO); a probabilidade é **previsão** e vai até ALTO |
 
 ---
 
@@ -115,8 +116,8 @@ ml-service/
 │   ├── baseline.py            ← régua de regras (≈ RiskClassificationService)
 │   ├── modelos.py             ← logística, LightGBM, Random Forest
 │   ├── calibracao.py          ← Platt/isotônica + escolha de limiares
-│   ├── niveis.py              ← escala BAIXO/MEDIO/ALTO/CRITICO
-│   ├── sensor_adjust.py       ← ajuste por regra com a leitura do sensor
+│   ├── niveis.py              ← escala BAIXO/MEDIO/ALTO/CRITICO (previsão até ALTO)
+│   ├── sensor_adjust.py       ← leitura de água na chance (regra do grupo, ADR 0006)
 │   ├── artefatos.py           ← salvar/carregar o pacote do modelo
 │   ├── train.py               ← treino + comparação + relatórios
 │   ├── evaluate.py            ← métricas (PR-AUC, Brier, por evento, Zona Norte), gráficos
@@ -284,9 +285,13 @@ Classificador por limiares de chuva acumulada: é a régua do TCC e o modo regra
 com MEDIO < ALTO < CRITICO).
 
 ### `src/niveis.py` e `src/sensor_adjust.py`
-Escala única de risco e a regra do sensor: ≥100 % = transbordando (medido, CRITICO); ≥80 %
-sobe um nível; lixo ≥60 % com chuva sobe um nível; as regras acumulam, nunca descem e têm teto
-em CRITICO.
+Escala única de risco e a regra do sensor (ADR 0006). A água no bueiro vira um **fator** sobre a
+razão de chances do modelo: 1 até 50 %, 2,5 em 65 %, 7 em 80 % e 12 a partir de 99 % (escala
+logarítmica entre as linhas; tabela em `config.AJUSTE_SENSOR`, igual à do app). O nível sai da
+chance ajustada e vai no máximo até ALTO (`nivel_previsto`). Água ≥ 100 % = transbordando
+(medido, CRITICO). O sensor nunca diminui a chance nem o nível. Os pesos são escolha do grupo, não
+aprendizado: não há histórico de leituras para treinar. O sensor mede só água. No modo regras
+não há chance para multiplicar: água em 80 % ou mais sobe um nível, até ALTO.
 
 ### `src/artefatos.py`
 `PacoteModelo` junta estimador, calibrador, features, limiares e metadados; salva e carrega os
@@ -370,67 +375,93 @@ python -m src.train --dataset v1prev --versao v1prev --usar-chuva-prevista     #
 | `GET /predict/regioes` | risco por subprefeitura (maior risco entre os pontos da região), para o aviso de região do app — ver ADR 0005 |
 | `POST /predict/regioes` | o mesmo, com `chuvaHoraria` informada e aplicada a todos os pontos — só para simulação/demonstração; a resposta sai com `fonteChuva = "INFORMADA"` |
 
-### Requisição (compatível com o payload antigo)
+### Requisição
 
 ```json
 {
   "sensorId": 12,
-  "latitude": -23.5152,
-  "longitude": -46.5841,
-  "timestamp": "2026-09-16T14:20:00-03:00",
-  "nivelAgua": 82.0,
-  "porcentagemLixo": 64.0,
-  "chuvaMm": 30.0,
-  "chuva": { "chuva_1h": 12.4, "chuva_3h": 30.0, "chuva_24h": 41.2 },
-  "chuvaHoraria": null
+  "latitude": -23.513987,
+  "longitude": -46.578094,
+  "nivelAgua": 82.0
 }
 ```
 
-- Só `latitude` e `longitude` são obrigatórios.
+Opcionais: `timestamp` (padrão = agora), `chuva` (resumo dos acumulados) e `chuvaHoraria` (série
+horária, para simulação).
+
+- Só `latitude` e `longitude` são obrigatórios. Sem `nivelAgua`, a resposta vem com
+  `semLeituraSensor = true` e a chance é a do modelo.
+- Campos desconhecidos são **ignorados**. `porcentagemLixo` e `chuvaMm` saíram do contrato
+  (ADR 0006): o sensor mede só água e a chuva é deste serviço. O backend pode continuar mandando os
+  dois até ser atualizado, sem erro.
 - De onde vem a chuva, em ordem de prioridade:
   1. `chuvaHoraria` (≥ 72 valores, o último é a hora de referência) → caminho exato, ideal para a demo;
   2. Open-Meteo/cache, com `chuva` (se vier) sobrescrevendo os acumulados;
-  3. só `chuva` → acumulados completados por aproximação;
-  4. só `chuvaMm` (legado) → tratado como `chuva_1h`.
+  3. só `chuva` → acumulados completados por aproximação.
 - Sem nenhuma chuva → **503** `CHUVA_INDISPONIVEL`, e o backend usa as regras.
 
 ### Resposta
 
+Saída real do modelo `v1` para a requisição acima, no ponto P0088 (Av. Bandeirantes do Sul, Vila
+Maria), com a chuva do cenário "chuva forte" do `make demo` informada em `chuvaHoraria` (66 horas
+secas seguidas de 0,5 · 2 · 6 · 15 · 25 · 20 mm, ou seja, 60 mm nas últimas 3 h):
+
 ```json
 {
   "sensorId": 12,
-  "probabilidadeAlagamento": 0.72,
-  "nivelRisco": "CRITICO",
-  "nivelRiscoModelo": "ALTO",
+  "probabilidadeAlagamento": 0.0218,
+  "probabilidadeModelo": 0.003,
+  "fatorSensor": 7.4086,
+  "nivelRisco": "ALTO",
+  "nivelRiscoModelo": "BAIXO",
   "janelaHoras": 3,
-  "geradaEm": "2026-09-16T14:20:03-03:00",
-  "validaAte": "2026-09-16T14:50:03-03:00",
-  "horaReferencia": "2026-09-16T14:00:00-03:00",
+  "geradaEm": "2026-11-16T14:09:36-03:00",
+  "validaAte": "2026-11-16T14:39:36-03:00",
+  "horaReferencia": "2026-11-16T14:00:00-03:00",
   "medicaoTransbordando": false,
   "ajusteSensorAplicado": true,
-  "motivosAjuste": ["nivelAgua 82% >= 80%"],
+  "motivosAjuste": [
+    "nivelAgua 82%: chance multiplicada por 7,4 (regra do grupo, sobre a razão de chances)"
+  ],
   "semLeituraSensor": false,
-  "fonteChuva": "OPEN_METEO",
-  "chuvaRecente3hMm": 30.0,
-  "chuvaPrevista3hMm": 4.2,
+  "fonteChuva": "INFORMADA",
+  "chuvaRecente3hMm": 60.0,
+  "chuvaPrevista3hMm": null,
   "origem": "MODELO",
   "modeloVersao": "v1",
-  "pontoId": "P0042",
-  "distanciaPontoM": 35.2,
+  "pontoId": "P0088",
+  "distanciaPontoM": 0.0,
   "avisos": []
 }
 ```
 
-Campos além do briefing (todos aditivos; ver [`docs/adr/0001-contrato-predict.md`](docs/adr/0001-contrato-predict.md)):
-`nivelRiscoModelo`, `horaReferencia`, `motivosAjuste`, `semLeituraSensor`,
-`chuvaRecente3hMm`, `chuvaPrevista3hMm`, `origem`, `pontoId`, `distanciaPontoM`, `avisos`.
+Lendo: só pela chuva e pelo lugar a chance seria 0,3 % (BAIXO); com a água em 82 % (fator 7,4 na
+razão de chances) ela vai a 2,2 %, acima do limiar de ALTO (1,19 %).
+
+| Campo | O que é |
+|---|---|
+| `probabilidadeModelo` | chance **calibrada** do modelo, só pela chuva e pelo lugar |
+| `fatorSensor` | fator da leitura de água sobre a razão de chances (1 = não mudou) |
+| `probabilidadeAlagamento` | chance **depois** do sensor (não é mais a calibrada) |
+| `nivelRiscoModelo` | nível só pela chuva e pelo lugar: BAIXO, MEDIO ou ALTO |
+| `nivelRisco` | nível final: até ALTO pela chance; CRITICO só com `medicaoTransbordando` |
+| `ajusteSensorAplicado` | a leitura do sensor subiu o **nível** |
+
+No modo regras (sem modelo), `probabilidadeAlagamento`, `probabilidadeModelo` e `fatorSensor`
+vêm `null`. A leitura de água continua contando para o nível: a partir de 80 % sobe um nível
+(até ALTO), e em 100 % é CRITICO, medido.
+
+Campos além do briefing (todos aditivos; ver [`docs/adr/0001-contrato-predict.md`](docs/adr/0001-contrato-predict.md)
+e [`docs/adr/0006-regra-do-sensor-e-nivel-critico.md`](docs/adr/0006-regra-do-sensor-e-nivel-critico.md)):
+`probabilidadeModelo`, `fatorSensor`, `nivelRiscoModelo`, `horaReferencia`, `motivosAjuste`,
+`semLeituraSensor`, `chuvaRecente3hMm`, `chuvaPrevista3hMm`, `origem`, `pontoId`,
+`distanciaPontoM`, `avisos`.
 
 | `fonteChuva` | Significado |
 |---|---|
 | `OPEN_METEO` | baixada agora ou cache com < 15 min |
 | `CACHE` | Open-Meteo falhou; usada chuva com < 60 min |
 | `INFORMADA` | veio no request (`chuvaHoraria`/`chuva`) |
-| `INFORMADA_LEGADO` | só `chuvaMm` |
 
 | Código de erro | HTTP | Quando |
 |---|---|---|
@@ -439,7 +470,7 @@ Campos além do briefing (todos aditivos; ver [`docs/adr/0001-contrato-predict.m
 | `LOTE_GRANDE_DEMAIS` | 413 | mais de 500 itens no lote |
 | (validação Pydantic) | 422 | campos fora do intervalo |
 
-Cenários prontos: `make demo` (seco, chuva forte, bueiro entupido, água alta, transbordando,
+Cenários prontos: `make demo` (seco, chuva forte, água subindo, água alta, transbordando,
 manutenção, chuva real).
 
 ---
@@ -451,8 +482,8 @@ Resumo (completo em [`docs/tempo-real.md`](docs/tempo-real.md)):
 - a chuva é cacheada **por célula** por 15 min, e o lote usa **uma** chamada ao Open-Meteo;
 - se o Open-Meteo falhar, usa a chuva com < 60 min (`CACHE`); sem isso, 503 e o backend usa as regras;
 - `validaAte = geradaEm + 30 min`: passado isso, o app mostra "previsão desatualizada";
-- sensor INACTIVE/MAINTENANCE: o backend manda sem `nivelAgua`/`porcentagemLixo` e a resposta
-  vem com `semLeituraSensor = true`;
+- sensor INACTIVE/MAINTENANCE: o backend manda sem `nivelAgua` e a resposta vem com
+  `semLeituraSensor = true` (fator 1: a chance é a do modelo);
 - sem modelo treinado: **modo regras** (`origem = REGRAS`, probabilidade `null`).
 
 ---
@@ -471,10 +502,10 @@ O CI (`.github/workflows/ci.yml`, na raiz do repositório) roda a suíte assim e
 | `test_features.py` | janelas, NaN em buracos, **sem vazamento**, horário de verão, ao vivo = treino, resumo parcial |
 | `test_labels.py` | janela (t, t+3h], horas alagadas, eventos sobrepostos, raio, frequência histórica |
 | `test_dataset.py` | divisão temporal, subamostragem só no treino, pesos, evento-alvo |
-| `test_sensor_adjust.py` | limites 79,9/80/100 %, lixo com e sem chuva, acumulação, teto, sem leitura |
-| `test_niveis_calibracao.py` | limites dos níveis, calibração melhora Brier, limiares ordenados, orçamento de alertas |
+| `test_sensor_adjust.py` | fatores da tabela, razão de chances (nunca passa de 1), mesmos casos do app, crítico só por medição, sem leitura, modo regras |
+| `test_niveis_calibracao.py` | limites dos níveis, previsão até ALTO, calibração melhora Brier, limiares ordenados, orçamento de alertas |
 | `test_fonte_chuva.py` | cache por célula, 1 chamada por lote, fallback < 60 min, falha total |
-| `test_api.py` | schema, payload antigo e novo, lote, 503, legado, modo regras, acento configurável |
+| `test_api.py` | schema, payload antigo e novo, lixo/`chuvaMm` ignorados, crítico só com medição, lote, 503, modo regras, acento configurável |
 | `test_baseline_artefatos.py` | baseline e ida-e-volta do pacote |
 | `test_coleta.py` | parser do CGE (HTML de exemplo, meia-noite, horário de verão), GeoSampa em UTM → WGS84, zonas, distância ao córrego, DBSCAN/seleção, geocodificador (cruzamento/referência/logradouro) |
 
@@ -508,7 +539,10 @@ docker build -t sima-ml-service .  # só a imagem
 - **Sem chuva futura** no modelo principal: pouca antecedência em tempestades que ainda não
   começaram (R1).
 - **Geocodificação** de endereços do CGE tem erro, que o filtro de precisão reduz mas não elimina.
-- **Sensor entra por regra**, não por aprendizado (não há histórico).
+- **Sensor entra por regra** (fator escolhido pelo grupo), não por aprendizado: não há histórico
+  de leituras. A chance depois do sensor deixa de ser calibrada; a calibrada é `probabilidadeModelo`.
+- **Sem nível crítico previsto**: a precisão-alvo do CRITICO foi inalcançável no `v1`; crítico é
+  só medição (ADR 0006).
 - **Sensores simulados**: sem validação de campo.
 - Com dados reais acumulados, dá para retreinar com o rótulo verdadeiro.
 
@@ -523,7 +557,7 @@ docker build -t sima-ml-service .  # só a imagem
 | [`docs/treinamento.md`](docs/treinamento.md) | método completo |
 | [`docs/tempo-real.md`](docs/tempo-real.md) | fluxo ao vivo, cache, falhas, cota |
 | [`docs/integracao-backend.md`](docs/integracao-backend.md) | DTOs Java, tabela `prediction`, agendador, alertas, compose |
-| [`docs/adr/`](docs/adr) | 0001 contrato · 0002 fonte de chuva e tempo · 0003 estratégia de treino · 0004 modo regras |
+| [`docs/adr/`](docs/adr) | 0001 contrato · 0002 fonte de chuva e tempo · 0003 estratégia de treino · 0004 modo regras · 0005 alerta por região · 0006 sensor na chance e crítico só por medição |
 | [`DATASET.md`](DATASET.md) | ficha do dataset |
 
 ## Como o grupo trabalha

@@ -72,6 +72,10 @@ treinado com `--limiares metas` (ver R18).
 **Decisão pendente:** como o app mostra a porcentagem; se o backend adota os limiares do
 `thresholds_v1.json`.
 
+**Atualização (16/11/2026, ADR 0006):** a meta do CRITICO (precisão de 50 %) foi inalcançável e
+o limiar ficou em 0,25. O serviço deixou de usá-lo: a previsão vai até ALTO e CRITICO só sai de
+medição do sensor. O valor continua no arquivo, como histórico.
+
 ---
 
 ## R4 — `freq_hist_alagamento` só com anos **anteriores** ✅
@@ -84,12 +88,22 @@ a linha do ano `Y` usa só eventos de anos `< Y`, e em produção vale todo o hi
 
 ---
 
-## R5 — O ajuste do sensor muda o **nível**, não a probabilidade ✅
+## R5 — ~~O ajuste do sensor muda o **nível**, não a probabilidade~~ — substituída pela ADR 0006
 
-Se `nivelAgua ≥ 100 %`, o nível vira CRITICO, mas a probabilidade continua sendo a do modelo
-(ex.: 12 %). Mostrar "12 % · CRÍTICO" confunde. Por isso a resposta ganhou:
-- `nivelRiscoModelo` (antes do sensor) e `motivosAjuste` (por que subiu);
-- `medicaoTransbordando` para o app trocar o número por **"Transbordando agora (medido)"**.
+Até 16/11/2026 a leitura do sensor subia o nível por regra (água ≥ 80 % sobe um nível; lixo
+≥ 60 % com chuva sobe um nível) e a probabilidade ficava a do modelo. O app fazia outra conta, e o
+mesmo bueiro podia dar resultados diferentes na demonstração e com dados reais.
+
+**Agora (ADR 0006):** a água entra **na chance**, pela mesma conta do app: um fator sobre a razão
+de chances (1 até 50 %, 2,5 em 65 %, 7 em 80 %, 12 a partir de 99 %). O nível sai da chance
+ajustada e vai até ALTO; água em 100 % é medição e é o único caminho para CRITICO. Os pesos são
+escolha do grupo, não aprendizado. O lixo saiu: o sensor mede só água.
+
+A regra antiga da água (80 % ou mais sobe um nível) fica **só no modo regras** (R7), onde não há
+chance para multiplicar, e com teto em ALTO.
+
+Continua valendo: a resposta traz `nivelRiscoModelo`, `motivosAjuste` e `medicaoTransbordando`,
+agora com `probabilidadeModelo` (antes do sensor) e `fatorSensor`.
 
 **Para o app:** quando `medicaoTransbordando = true`, esconder a porcentagem.
 
@@ -110,6 +124,9 @@ Sem `models/flood_lgbm_v1.joblib`, o serviço responde com o baseline de regras,
 `origem: "REGRAS"`, `modeloVersao: "regras-v0"` e **`probabilidadeAlagamento: null`**. Assim
 o backend (dias 14–15) pode ser integrado **antes** do modelo ficar pronto.
 
+Nesse modo o nível vai até ALTO e a leitura de água continua contando: 80 % ou mais sobe um
+nível (até ALTO); 100 % é CRITICO, medido (ADR 0006, item 5).
+
 **Para o backend:** o DTO precisa aceitar `null` (`Double`, não `double`).
 
 ---
@@ -121,11 +138,11 @@ fonte do treino. Então o **serviço Python é o dono da chuva**:
 - fluxo normal: o backend manda só lat/lon + leitura do sensor;
 - `chuvaHoraria` (série de 72 h) e `chuva` (resumo) servem para o simulador e para a demo
   (ex.: "chuva forte" num dia seco);
-- `chuvaMm` (legado) tem significado ambíguo. Hoje ele só é usado como `chuva_1h` se não
-  houver nenhuma outra fonte, e na regra do lixo.
+- `chuvaMm` (legado) tinha significado ambíguo.
 
-**Decisão pendente:** o que `chuvaMm` significa no backend (chuva da última hora? acumulado?), ou
-depreciar o campo.
+**Decidido (16/11/2026, ADR 0006):** `chuvaMm` saiu do contrato, junto com a fonte
+`INFORMADA_LEGADO` e a regra do lixo. A requisição ignora campos desconhecidos, então o backend
+pode continuar mandando o campo até ser atualizado (#18).
 
 ---
 

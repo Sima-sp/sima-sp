@@ -3,9 +3,10 @@
 Deve reproduzir o ``RiskClassificationService`` do backend Java na parte de **chuva
 acumulada**. ⚠️ Os limiares abaixo são PROVISÓRIOS: substituir pelos valores reais do código
 Java (``reading/application/RiskClassificationService.java``) para que a comparação no TCC seja
-com a regra que o sistema realmente usa. A parte do sensor (água/lixo) não entra no baseline
+com a regra que o sistema realmente usa. A parte do sensor (água) não entra no baseline
 histórico porque não há histórico de sensores; ela é aplicada igualmente a todos os modelos via
-``src/sensor_adjust.py``.
+``src/sensor_adjust.py`` (sem probabilidade, no modo regras a água a partir de 80 % sobe um
+nível, até ALTO, e a medição de transbordamento dá CRITICO).
 
 O baseline também é o "modo regras" do serviço quando ainda não existe modelo treinado.
 """
@@ -15,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from src.niveis import ORDEM_NIVEIS, NivelRisco
+from src.niveis import NIVEL_MAXIMO, ORDEM_NIVEIS, NivelRisco, menor_nivel
 
 # mm acumulados: nível mínimo MEDIO / ALTO / CRITICO — SUBSTITUIR pelos valores do backend
 LIMIARES_BASELINE = {
@@ -50,6 +51,11 @@ class BaselineRegras:
         return self.niveis(df) / 3.0
 
     def nivel(self, valores: dict) -> NivelRisco:
-        """Nível para um único registro (usado pelo serviço em modo regras)."""
+        """Nível para um único registro (usado pelo serviço em modo regras).
+
+        Como a previsão do modelo, vai no máximo até ALTO: CRITICO só sai de medição do sensor
+        (ADR 0006). ``niveis()`` continua com a escala de 4 níveis porque é a régua das
+        comparações já publicadas em ``reports/``.
+        """
         linha = pd.DataFrame([{k: valores.get(k, 0.0) or 0.0 for k in self.limiares}])
-        return ORDEM_NIVEIS[int(self.niveis(linha)[0])]
+        return menor_nivel(ORDEM_NIVEIS[int(self.niveis(linha)[0])], NIVEL_MAXIMO)

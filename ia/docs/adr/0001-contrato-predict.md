@@ -23,6 +23,10 @@ espera `probabilidadeAlagamento, nivelRisco`. O briefing (seção 9) acrescenta 
 7. `POST /predict/batch` recebe uma **lista** e devolve uma lista na mesma ordem, com
    `sucesso/previsao/erro` por item.
 
+> **Atualização (16/11/2026):** a ADR 0006 tirou `porcentagemLixo`, `chuvaMm` e a fonte
+> `INFORMADA_LEGADO` do contrato (a requisição ignora campos desconhecidos) e acrescentou
+> `probabilidadeModelo` e `fatorSensor` à resposta.
+
 ## Consequências
 - O backend precisa aceitar campos desconhecidos e `probabilidade` nula.
 - O app ganha o que precisa para separar Medido × Previsto e mostrar "desatualizada".

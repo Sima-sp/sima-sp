@@ -41,5 +41,9 @@
         "precisao_min": 0.5
       }
     }
+  },
+  "uso_no_servico": {
+    "nivel_maximo_previsao": "ALTO",
+    "critico": "limiar mantido só como histórico do treino; o serviço não o usa. CRITICO só sai de medição do sensor (água em 100 %). Ver ADR 0006."
   }
 }

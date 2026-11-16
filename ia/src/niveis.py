@@ -1,5 +1,9 @@
 """Escala única de risco do SIMA-SP: BAIXO < MEDIO < ALTO < CRITICO.
 
+A **previsão** vai no máximo até ALTO (``NIVEL_MAXIMO_PREVISAO``). CRITICO é reservado para a
+**medição** do sensor (bueiro transbordando), ver ``src/sensor_adjust.py`` e a ADR 0006. Os
+arquivos de limiares continuam com o valor de CRITICO, só como histórico do treino.
+
 No JSON os valores vão **sem acento** (``MEDIO``, ``CRITICO``), iguais aos nomes do enum
 ``RiskLevel`` do backend Java (o documento de contexto usa "ALTO ou CRITICO"). O acento fica só
 no texto exibido ao usuário (``rotulo_exibicao``). Se o backend usar acento, ligue
@@ -12,7 +16,7 @@ import json
 from enum import Enum
 from pathlib import Path
 
-from src.config import LIMIARES_NIVEIS_PADRAO
+from src.config import LIMIARES_NIVEIS_PADRAO, NIVEL_MAXIMO_PREVISAO
 
 
 class NivelRisco(str, Enum):
@@ -53,6 +57,28 @@ def nivel_por_probabilidade(p: float, limiares: dict = LIMIARES_NIVEIS_PADRAO) -
     return NivelRisco.BAIXO
 
 
+def nivel_previsto(p: float, limiares: dict = LIMIARES_NIVEIS_PADRAO) -> NivelRisco:
+    """Nível de uma PREVISÃO: como :func:`nivel_por_probabilidade`, com teto em ALTO.
+
+    Uma chance acima do limiar CRITICO continua ALTO: crítico só sai de medição do sensor.
+    """
+    return menor_nivel(nivel_por_probabilidade(p, limiares), NIVEL_MAXIMO)
+
+
+def limiares_em_uso(limiares: dict) -> dict:
+    """Os limiares que o serviço usa de fato (sem o CRITICO, que ficou só como histórico)."""
+    return {k: v for k, v in limiares.items() if NivelRisco(k).ordem <= NIVEL_MAXIMO.ordem}
+
+
+def nota_nivel_critico() -> dict:
+    """Registro gravado nos metadados e nos limiares: o CRITICO do arquivo não é usado."""
+    return {
+        "nivel_maximo_previsao": NIVEL_MAXIMO.value,
+        "critico": "limiar mantido só como histórico do treino; o serviço não o usa. "
+                   "CRITICO só sai de medição do sensor (água em 100 %). Ver ADR 0006.",
+    }
+
+
 def niveis_por_probabilidade(probs, limiares: dict = LIMIARES_NIVEIS_PADRAO):
     """Versão vetorizada: devolve um array de inteiros 0..3 (ordem dos níveis)."""
     import numpy as np
@@ -68,6 +94,13 @@ def subir_nivel(nivel: NivelRisco, passos: int = 1) -> NivelRisco:
 
 def maior_nivel(*niveis: NivelRisco) -> NivelRisco:
     return max(niveis, key=lambda n: n.ordem)
+
+
+def menor_nivel(*niveis: NivelRisco) -> NivelRisco:
+    return min(niveis, key=lambda n: n.ordem)
+
+
+NIVEL_MAXIMO = NivelRisco(NIVEL_MAXIMO_PREVISAO)
 
 
 def rotulo_exibicao(nivel: NivelRisco) -> str:

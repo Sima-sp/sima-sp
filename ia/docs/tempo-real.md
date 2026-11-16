@@ -8,8 +8,8 @@
 └──────┬──────┘                               └───────────┬───────────┘
        │ salva Prediction (fonte=IA)                      │ 1. células vencidas → 1 chamada Open-Meteo
        │ falhou/timeout 2 s → regras (fonte=REGRAS)       │ 2. features (src/features.py)
-       ▼                                                  │ 3. modelo + calibração → nível
-┌─────────────┐   GET /api/public/mapa-risco              │ 4. ajuste do sensor
+       ▼                                                  │ 3. modelo + calibração → chance
+┌─────────────┐   GET /api/public/mapa-risco              │ 4. água × fator → chance e nível
 │  MySQL      │ ◄──────────────── App (polling 1–2 min)   │ 5. geradaEm / validaAte (+30 min)
 └─────────────┘                                           ▼
 ```
@@ -34,9 +34,10 @@ Se a hora 14:00 ainda vier vazia, o serviço usa 13:00 e avisa.
 | Open-Meteo fora, cache < 60 min | 200, `fonteChuva=CACHE` + aviso | salva `fonte=IA` | igual (pode mostrar "chuva de 40 min atrás") |
 | Open-Meteo fora, sem cache | 503 `CHUVA_INDISPONIVEL` | regras, `fonte=REGRAS` | nível pelas regras, sem porcentagem |
 | Serviço fora / timeout | — | regras, `fonte=REGRAS` | idem |
-| Sem modelo treinado | 200, `origem=REGRAS`, prob. `null` | salva `fonte=REGRAS` | idem |
-| Sensor INACTIVE/MAINTENANCE | 200, `semLeituraSensor=true` | envia sem água/lixo | "sem leitura do sensor" + previsão só por chuva |
-| `nivelAgua ≥ 100` | 200, `medicaoTransbordando=true`, CRITICO | alerta MEDIDO | "Transbordando agora (medido)", sem porcentagem |
+| Sem modelo treinado | 200, `origem=REGRAS`, prob. `null`; `nivelAgua` ≥ 80 sobe um nível, até ALTO | salva `fonte=REGRAS` | idem |
+| Sensor INACTIVE/MAINTENANCE | 200, `semLeituraSensor=true`, `fatorSensor=1` | envia sem `nivelAgua` | "sem leitura do sensor" + previsão só por chuva |
+| `nivelAgua` entre 50 e 99 | 200, chance × fator (ADR 0006), nível até ALTO | — | chance com o sensor |
+| `nivelAgua ≥ 100` | 200, `medicaoTransbordando=true`, CRITICO (único caminho para CRITICO) | alerta MEDIDO | "Transbordando agora (medido)", sem porcentagem |
 | Agora > `validaAte` | — | endpoint devolve `DESATUALIZADA` | "previsão desatualizada" no lugar do número |
 
 ## Parâmetros (variáveis de ambiente)

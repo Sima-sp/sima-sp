@@ -43,14 +43,14 @@ O aviso "Demonstração" fica sempre na tela. O que é real e o que é inventado
 - **Inventados:** as leituras, a chuva e as previsões. Mas seguem uma lógica só
   (`src/dados/demo.js`): quem alaga mais e está perto de córrego reage mais; a leitura do sensor
   entra na chance (ver "O sensor na previsão"); a chance vira nível pelos limiares reais do
-  modelo; água em 100 % é "transbordando agora".
+  modelo, até alto; água em 100 % é "transbordando agora", e só aí o nível é crítico.
 
 | Clima | O que aparece | Aviso por região |
 |---|---|---|
 | Sol | Tudo em nível baixo | Nenhum |
 | Chuvisco | Tudo em baixo; a água sobe um pouco nos bueiros | Nenhum |
-| Chuva forte | De tudo um pouco, com alguns críticos; ruas pintadas em volta dos altos e críticos | 7 regiões em risco alto e 5 em atenção |
-| Chuva extrema | Maioria em alto ou crítico; cerca de 17 bueiros transbordando | As 15 regiões com cobertura em risco alto |
+| Chuva forte | De tudo um pouco, até alto (31 bueiros); nenhum crítico, porque nenhum transborda; ruas pintadas em volta dos altos | 7 regiões em risco alto e 5 em atenção |
+| Chuva extrema | Maioria em alto (82 bueiros); 17 transbordando, e só esses são críticos | As 15 regiões com cobertura em risco alto |
 
 Na primeira abertura o app mostra uma **apresentação de quatro passos** (ver "Primeiro uso"). Para
 quem apresenta: ela pode ser revista em Menu → "Rever a apresentação".
@@ -201,8 +201,10 @@ demonstração e no simulador (`src/dados/demo.js`):
    até a metade não muda nada; 2,5 vezes em 65 %, 7 vezes em 80 %, 12 vezes quase cheio. A conta
    é feita em "chances contra e a favor" (odds): com chance pequena o resultado é esse mesmo
    múltiplo; perto de 100 % o efeito é menor, e as telas dizem o crescimento real.
-3. O nível sai da chance final, pelos limiares do modelo. Água em 100 % é "transbordando agora":
-   crítico, e aí é medição, não previsão.
+3. O nível sai da chance final, pelos limiares do modelo (médio a partir de 0,41 %, alto a partir
+   de 1,19 %), e **vai até alto**: por maior que seja a chance, a previsão não vira crítico.
+4. **Crítico é só medição.** Água em 100 % é "transbordando agora", e é o único caminho para o
+   nível crítico. Nenhum bueiro fica crítico sem estar transbordando.
 
 A leitura nunca diminui a chance, e sem leitura (sensor fora do ar) vale a chance da chuva e do
 lugar. O app guarda as duas (`probabilidade` e `probabilidadeSemSensor`) para mostrar o quanto o
@@ -216,8 +218,9 @@ foi inventado. O caminho é acumular leituras de verdade e, com elas, trocar a r
 aprendizado; é o ponto de `chanceComSensor`.
 
 **O sensor mede só a água.** Até 06/10/2026 o app também mostrava "lixo acumulado" e usava o
-lixo na conta. Saiu: o sensor do projeto detecta água, não lixo. O backend e o `ml-service` ainda
-têm o campo `porcentagemLixo`; se ele vier em `/previsoes`, o app ignora.
+lixo na conta. Saiu: o sensor do projeto detecta água, não lixo. O serviço de IA também tirou o
+lixo da regra (em 16/11/2026). O backend ainda tem o campo `porcentagemLixo`; se ele vier em
+`/previsoes`, o app ignora.
 
 **O protótipo mede a distância até a água.** O ESP32 que o grupo tem hoje mede, em centímetros,
 a distância do sensor até a água (ver "Sensor ao vivo"); o servidor do sensor classifica essa
@@ -225,11 +228,20 @@ distância em quatro níveis. Ele ainda não informa "71 % cheio": para isso fal
 profundidade do bueiro (cheio = distância mínima, vazio = distância até o fundo). A demonstração
 e o simulador continuam com o nível em %, que é o que o sistema completo prevê mostrar.
 
-**Diferença para o serviço de IA de hoje.** No `ml-service` v1 o modelo calcula a chance só com
-a chuva e o lugar, e a leitura do sensor sobe o **nível** por regra (água ≥ 80 %, e lixo ≥ 60 %
-com chuva), sem mexer na porcentagem. Com o app ligado ao backend, o que aparece é isso. Para o
-sistema de verdade se comportar como a demonstração, a mesma conta precisa entrar no `ml-service`
-(e o backend mandar a chance já com o sensor), e a regra do lixo precisa sair de lá.
+**Igual ao serviço de IA.** Desde 16/11/2026 o serviço de IA (`ia/`) faz esta mesma conta: o
+mesmo fator da água, na razão de chances, o nível até alto e crítico só por medição
+(`ia/docs/adr/0006-regra-do-sensor-e-nivel-critico.md`). Os casos de teste do fator são os mesmos
+nos dois lados (`src/dados/demo.test.js` aqui e `ia/tests/test_sensor_adjust.py` lá): se a tabela
+mudar de um lado, o teste do outro avisa. Com o app ligado ao backend, ele não calcula nada disso:
+mostra o que vier.
+
+O que ainda falta, no backend: mandar em `/previsoes` a chance só pela chuva e pelo lugar e o fator
+do sensor, que a IA já devolve (`probabilidadeModelo` e `fatorSensor`). Sem isso, com dados reais
+a tela do bueiro não tem como dizer o quanto o sensor pesou.
+
+Uma diferença pequena que fica: o app usa os limiares arredondados (0,41 % e 1,19 %) e a IA, os
+valores completos do arquivo (0,4065 % e 1,1905 %). Uma chance que caia entre os dois dá um nível
+de diferença.
 
 ## Sensor ao vivo
 
@@ -682,7 +694,7 @@ hospedagem estática sem configurar o servidor.
 | Perfil e conta | Login (JWT) no backend |
 | Aviso por região vindo do servidor | Formato de `GET /previsoes/regioes` (hoje o app calcula com a mesma regra) |
 | Trecho de rua para sensores fora dos pontos conhecidos | Rodar `npm run ruas` com a posição dos sensores |
-| Chance com o sensor também nos dados reais | A conta de "O sensor na previsão" no `ml-service`, e o backend mandando a chance antes e depois do sensor |
+| Mostrar o quanto o sensor pesou também nos dados reais | A conta já está no serviço de IA; falta o backend mandar a chance antes do sensor e o fator |
 | A IA aprender o peso do sensor | Meses de leituras de verdade, com registro de quando alagou |
 | Leitura do sensor com dados reais | `nivelAgua`, `dataLeitura` e `statusSensor` em `/previsoes` |
 | Protótipo do sensor no mapa (hoje só na tela "Sensor ao vivo") | O ESP32 enviar a leitura ao backend, e o backend devolvê-la em `/previsoes` |

@@ -1,9 +1,9 @@
 """Contrato JSON do serviço (seção 9 do briefing), em Pydantic.
 
 Os nomes dos campos são os mesmos dos DTOs do backend Java (camelCase em português).
-Campos novos são **opcionais**, então o payload antigo (``nivelAgua``, ``porcentagemLixo``,
-``chuvaMm``, ``latitude``, ``longitude``) continua válido. Mudanças aqui são decisão de
-arquitetura: registrar em ``docs/adr/0001-contrato-predict.md``.
+Campos novos são **opcionais**. A requisição **ignora campos que não conhece**: ``porcentagemLixo``
+e ``chuvaMm`` saíram do contrato (ADR 0006), mas o backend pode continuar mandando os dois até
+ser atualizado. Mudanças aqui são decisão de arquitetura: registrar em ``docs/adr/``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ class FonteChuva(str, Enum):
     OPEN_METEO = "OPEN_METEO"  # baixada agora (ou cache ainda válido)
     CACHE = "CACHE"  # Open-Meteo falhou; usada a última chuva conhecida (< 1 h)
     INFORMADA = "INFORMADA"  # enviada no request (chuvaHoraria ou chuva)
-    INFORMADA_LEGADO = "INFORMADA_LEGADO"  # só chuvaMm (campo antigo), tratado como chuva_1h
 
 
 class OrigemPrevisao(str, Enum):
@@ -44,19 +43,20 @@ class ResumoChuva(BaseModel):
 class RequisicaoPrevisao(BaseModel):
     """Entrada de ``POST /predict``."""
 
-    model_config = ConfigDict(json_schema_extra={"examples": [{
+    # extra="ignore": campos desconhecidos (ex.: porcentagemLixo e chuvaMm, que saíram do
+    # contrato) são aceitos e descartados, para o backend antigo não receber 422.
+    model_config = ConfigDict(extra="ignore", json_schema_extra={"examples": [{
         "sensorId": 12, "latitude": -23.5152, "longitude": -46.5841,
-        "timestamp": "2026-09-16T14:20:00-03:00", "nivelAgua": 82.0, "porcentagemLixo": 64.0,
-        "chuvaMm": 30.0, "chuva": {"chuva_1h": 12.4, "chuva_3h": 30.0, "chuva_24h": 41.2},
+        "timestamp": "2026-09-16T14:20:00-03:00", "nivelAgua": 82.0,
     }]})
 
     sensorId: int | None = Field(None, description="ID do sensor no backend (novo, opcional)")
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     timestamp: datetime | None = Field(None, description="Instante da previsão; padrão = agora")
-    nivelAgua: float | None = Field(None, ge=0, le=200, description="% da capacidade (>=100 = transbordando)")
-    porcentagemLixo: float | None = Field(None, ge=0, le=100)
-    chuvaMm: float | None = Field(None, ge=0, description="LEGADO: usado como chuva_1h só se nada mais vier")
+    nivelAgua: float | None = Field(
+        None, ge=0, le=200,
+        description="Água no bueiro, em % da capacidade (>=100 = transbordando). Ausente = sem leitura.")
     chuva: ResumoChuva | None = Field(None, description="Acumulados informados (sobrescrevem os calculados)")
     chuvaHoraria: list[float] | None = Field(
         None, min_length=72, max_length=240,
@@ -76,9 +76,15 @@ class RespostaPrevisao(BaseModel):
 
     sensorId: int | None = None
     probabilidadeAlagamento: float | None = Field(
-        None, description="0–1, calibrada. null quando origem=REGRAS (não há probabilidade honesta)")
-    nivelRisco: str = Field(..., description="Nível final (após ajuste do sensor)")
-    nivelRiscoModelo: str = Field(..., description="Nível só pela probabilidade/regras, antes do sensor")
+        None, description="0–1, chance DEPOIS da leitura do sensor (probabilidadeModelo × fatorSensor, "
+                          "na razão de chances). null quando origem=REGRAS")
+    probabilidadeModelo: float | None = Field(
+        None, description="0–1, chance calibrada do modelo, só pela chuva e pelo lugar. null quando origem=REGRAS")
+    fatorSensor: float | None = Field(
+        None, description="Fator da leitura de água sobre a razão de chances (1 = não mudou). "
+                          "null quando origem=REGRAS")
+    nivelRisco: str = Field(..., description="Nível final. BAIXO a ALTO pela chance; CRITICO só por medição")
+    nivelRiscoModelo: str = Field(..., description="Nível só pela chuva e pelo lugar (BAIXO a ALTO), antes do sensor")
     janelaHoras: int = 3
     geradaEm: str
     validaAte: str
@@ -103,7 +109,8 @@ class RegiaoRisco(BaseModel):
     regiaoId: str
     regiao: str = Field(..., description="Nome para a tela, ex.: 'Vila Maria / Vila Guilherme'")
     zona: str
-    nivelRisco: str | None = Field(None, description="null quando a região não tem cobertura")
+    nivelRisco: str | None = Field(
+        None, description="BAIXO a ALTO (sem sensor, nunca CRITICO); null quando a região não tem cobertura")
     probabilidadeMaxima: float | None = None
     pontoId: str | None = Field(None, description="Ponto que puxou o risco da região")
     logradouro: str | None = None

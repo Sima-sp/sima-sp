@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 
 import {
   CLIMAS, LIMIARES, PONTOS_BASE, chanceComSensor, criarEstadoDemo, emTransicao, fatorDaAgua, gerarPontosDemo, intensidades,
-  situacaoDoPonto, trocarClima,
+  preverComSensor, situacaoDoPonto, trocarClima,
 } from "./demo.js";
 import { PONTOS_CAPITAL } from "./pontosCapital.js";
 import { statusAgora } from "./modelo.js";
@@ -57,10 +57,10 @@ test("cada clima é visivelmente pior que o anterior", () => {
   const [sol, chuvisco, forte, extrema] = ["sol", "chuvisco", "chuva-forte", "chuva-extrema"].map(niveis);
   // chuvisco: não chega a preocupar; a água sobe um pouco, mas ninguém passa de médio
   assert.ok(chuvisco[0] > 120 && chuvisco[2] + chuvisco[3] === 0, `chuvisco ${chuvisco}`);
-  // chuva forte: de tudo um pouco, com alguns críticos
-  assert.ok(forte[0] > 10 && forte[1] > 40 && forte[2] > 15 && forte[3] >= 2, `forte ${forte}`);
-  // chuva extrema: a maioria em alto ou crítico
-  assert.ok(extrema[2] + extrema[3] > 90 && extrema[3] > 30, `extrema ${extrema}`);
+  // chuva forte: de tudo um pouco, até alto; ninguém transborda, então ninguém é crítico
+  assert.ok(forte[0] > 10 && forte[1] > 40 && forte[2] > 15 && forte[3] === 0, `forte ${forte}`);
+  // chuva extrema: a maioria em alto ou crítico; os críticos são os que transbordam
+  assert.ok(extrema[2] + extrema[3] > 90 && extrema[3] >= 8, `extrema ${extrema}`);
   // nenhum ponto melhora quando a chuva aumenta
   const ordem = ["sol", "chuvisco", "chuva-forte", "chuva-extrema"].map((c) => gerarPontosDemo(AGORA, criarEstadoDemo(c)));
   for (let i = 0; i < 136; i += 1) {
@@ -84,8 +84,47 @@ test("só a chuva extrema faz bueiro transbordar, e quem transborda é crítico"
   }
 });
 
+test("crítico só por medição: nenhum bueiro fica crítico sem estar transbordando agora", () => {
+  for (const clima of CLIMAS) {
+    for (const p of gerarPontosDemo(AGORA, criarEstadoDemo(clima.id))) {
+      assert.equal(p.nivel === 4, p.medicaoTransbordando, `${clima.id} ${p.codigo}`);
+      assert.ok(p.nivelModelo <= 3, `${clima.id} ${p.codigo}: a previsão vai até alto`);
+    }
+  }
+  // Uma chance enorme sem o bueiro cheio continua alto; o mesmo bueiro cheio é crítico.
+  assert.equal(preverComSensor(0.6, { agua: 99 }).nivel, 3);
+  assert.equal(preverComSensor(0.6, { agua: 100 }).nivel, 4);
+  assert.deepEqual(Object.keys(LIMIARES), ["medio", "alto"]);
+});
+
+// Os mesmos casos de ia/tests/test_sensor_adjust.py (CASOS_FATOR_APP e CASOS_CHANCE_APP): a IA
+// e o app têm de dar o mesmo número. Mudou a tabela de um lado, o teste do outro avisa.
+const CASOS_FATOR = [
+  [0, 1], [30, 1], [50, 1], [57.5, 1.5811388300841898], [65, 2.5], [72, 4.042162387555854],
+  [80, 7], [82, 7.408638044977852], [90, 9.296077322148212], [99, 12], [99.5, 12], [100, 12],
+  [120, 12],
+];
+// [chance só pela chuva e pelo lugar, água %, chance com o sensor]
+const CASOS_CHANCE = [
+  [0.018, 40, 0.018],
+  [0.018, 65, 0.043816942551119765],
+  [0.018, 80, 0.11371841155234656],
+  [0.018, 99, 0.18030050083472454],
+  [0.3, 99, 0.8372093023255814],
+  [0.9, 99, 0.9908256880733946],
+  [0.0007, 72, 0.0028235009873356686],
+];
+
+test("o fator do sensor dá os mesmos números do serviço de IA", () => {
+  const perto = (a, b) => Math.abs(a - b) <= 1e-12 * Math.max(Math.abs(a), Math.abs(b));
+  for (const [agua, fator] of CASOS_FATOR) assert.ok(perto(fatorDaAgua(agua), fator), `fator da água em ${agua}%`);
+  for (const [chance, agua, esperada] of CASOS_CHANCE) {
+    assert.ok(perto(chanceComSensor(chance, { agua }).probabilidade, esperada), `chance ${chance} com água em ${agua}%`);
+  }
+});
+
 test("a chance junta chuva, lugar e sensor, e o nível sai dela pelos limiares do modelo", () => {
-  const nivelDe = (chance) => (chance >= LIMIARES.critico ? 4 : chance >= LIMIARES.alto ? 3 : chance >= LIMIARES.medio ? 2 : 1);
+  const nivelDe = (chance) => (chance >= LIMIARES.alto ? 3 : chance >= LIMIARES.medio ? 2 : 1);
   for (const clima of CLIMAS) {
     for (const p of gerarPontosDemo(AGORA, criarEstadoDemo(clima.id))) {
       // O sensor entra por cima da chance da chuva e do lugar, e nunca a diminui.

@@ -121,9 +121,8 @@ export function fraseDoResultado(resultado) {
   return `Só pela chuva e pelo lugar a chance seria ${semSensor}. Com o que o sensor mede, ela fica ${vezes(fator)} maior.${subiu}`;
 }
 
-/** Os limiares do modelo em texto, para a explicação dos níveis. */
+/** Os limiares do modelo em texto, para a explicação dos níveis. Crítico não tem: é medição. */
 export const LIMIARES_EM_TEXTO = {
   2: `${formato.format(LIMIARES.medio * 100)}%`,
   3: `${formato.format(LIMIARES.alto * 100)}%`,
-  4: `${formato.format(LIMIARES.critico * 100)}%`,
 };
