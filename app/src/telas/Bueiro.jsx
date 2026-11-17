@@ -6,7 +6,9 @@
 import { useNavigate, useParams } from "react-router";
 import { usePontos } from "../dados/PontosContexto";
 import { corNivel, rotuloNivel } from "../dados/niveis";
-import { haQuanto, horaCurta, leituraRecente, milimetros, nivelVisivel, porcento, statusAgora, textoProbabilidade } from "../dados/modelo";
+import {
+  centimetros, haQuanto, horaCurta, milimetros, motivoSemLeitura, nivelVisivel, porcento, statusAgora, textoProbabilidade, tituloDoPonto,
+} from "../dados/modelo";
 import { SeloNivel } from "../componentes/Tampa";
 import { BotaoVoltar, Tela } from "../componentes/Tela";
 import { IconeMais, IconeMapa, IconeRota, IconeSeta } from "../componentes/Icones";
@@ -31,14 +33,15 @@ export default function Bueiro() {
 
   const nivel = nivelVisivel(ponto, agora);
   const cor = corNivel(nivel);
-  const temLeitura = ponto.agua !== null && !ponto.semLeituraSensor && ponto.statusSensor !== "INATIVO";
+  // Leitura velha, sensor inativo ou em manutenção: a tampa fica vazia e o texto diz o motivo.
+  const temLeitura = motivoSemLeitura(ponto, agora) === null;
 
   return (
-    <Tela titulo={`Bueiro ${ponto.codigo}`}>
+    <Tela titulo={tituloDoPonto(ponto)}>
       <header className="bu-head">
         <BotaoVoltar />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 className="bu-titulo">Bueiro {ponto.codigo}</h1>
+          <h1 className="bu-titulo">{tituloDoPonto(ponto)}</h1>
           <p className="micro bu-sub">{ponto.endereco ? `${ponto.endereco} · ${ponto.bairro}` : ponto.bairro}</p>
         </div>
         <SeloNivel nivel={nivel} />
@@ -87,6 +90,11 @@ export default function Bueiro() {
         <h2 className="h2" style={{ fontSize: 21 }}>Sobre este ponto</h2>
         <div className="grp" style={{ margin: "14px 0 0" }}>
           <div className="bu-fact"><span>Bairro</span><b>{ponto.bairro}</b></div>
+          <div className="bu-fact"><span>Código do sensor</span><b className="mono">{ponto.codigo}</b></div>
+          {/* O que o sensor mede de verdade é a distância até a água; o nível em % é a conta do servidor. */}
+          {temLeitura && ponto.distanciaCm !== null && ponto.distanciaCm !== undefined ? (
+            <div className="bu-fact"><span>Do sensor até a água</span><b className="mono">{centimetros(ponto.distanciaCm)}</b></div>
+          ) : null}
           {ponto.statusSensor ? (
             <div className="bu-fact"><span>Sensor</span><b>{{ ATIVO: "Ativo", INATIVO: "Inativo", MANUTENCAO: "Em manutenção" }[ponto.statusSensor] ?? ponto.statusSensor}</b></div>
           ) : null}
@@ -114,11 +122,14 @@ export default function Bueiro() {
 }
 
 function textoDoSensor(ponto, agora) {
-  if (ponto.statusSensor === "INATIVO") return "Sensor inativo · sem leitura neste ponto";
-  if (ponto.statusSensor === "MANUTENCAO") return "Sensor em manutenção · sem leitura no momento";
-  if (ponto.agua === null || ponto.semLeituraSensor) return "Sem leitura recente do sensor";
-  if (!leituraRecente(ponto, agora)) return `Última leitura ${haQuanto(ponto.leituraEm, agora)} · sensor sem enviar dados desde então`;
-  return `Sensor online · leitura ${haQuanto(ponto.leituraEm, agora)}`;
+  const motivo = motivoSemLeitura(ponto, agora);
+  if (motivo === "inativo") return "Sensor inativo · sem leitura neste ponto";
+  if (motivo === "manutencao") return "Sensor em manutenção · sem leitura no momento";
+  if (motivo === "sem-leitura") return "Sem leitura do sensor";
+  if (motivo === "velha") {
+    return `Sem leitura recente · a última foi ${haQuanto(ponto.leituraEm, agora)} (${porcento(ponto.agua)}) e o sensor não enviou mais dados`;
+  }
+  return `Sensor online · leitura ${ponto.leituraEm ? haQuanto(ponto.leituraEm, agora) : "recente"}`;
 }
 
 /**
