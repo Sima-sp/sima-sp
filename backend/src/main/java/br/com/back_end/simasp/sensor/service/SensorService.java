@@ -1,55 +1,51 @@
 package br.com.back_end.simasp.sensor.service;
 
-import br.com.back_end.simasp.exception.LocalizacaoSensorDuplicadaException;
-import br.com.back_end.simasp.sensor.dto.SensorRequest;
+import br.com.back_end.simasp.exception.RecursoNaoEncontradoException;
 import br.com.back_end.simasp.sensor.dto.SensorResponse;
-import br.com.back_end.simasp.sensor.entity.Sensor;
 import br.com.back_end.simasp.sensor.mapper.SensorMapper;
 import br.com.back_end.simasp.sensor.repository.SensorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @Service
-
 public class SensorService {
+
     @Autowired
     private SensorRepository repository;
 
     @Autowired
     private SensorMapper mapper;
 
-    public List<SensorResponse> buscarSensores()
+    // Busca sensor por ID
+    public SensorResponse buscarSensorPorId(Long id)
     {
-        return repository.findAll().stream().map(mapper::paraSensorResponse).toList();
-    }
-
-    public SensorResponse cadastrarSensor(SensorRequest request) {
-
-        boolean existeSensorNoLocal = repository.existsByLatitudeAndLongitude(
-                BigDecimal.valueOf(request.latitude()), BigDecimal.valueOf(request.longitude()));
-
-        if(existeSensorNoLocal)
-        {
-            throw new LocalizacaoSensorDuplicadaException("A latitude " + request.latitude() + " e longitude " + request.longitude() + " já estão inclusas singularmente no banco.");
-        }
-
-        Sensor sensor = repository.save(mapper.paraSensorEntidade(request));
-
+        var sensor = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Não há sensor com o id: " + id));
         return mapper.paraSensorResponse(sensor);
     }
 
-    /** Sensores a até {@code distanciaMetros} do usuário (padrão de 2 km se nada for informado). */
-    public List<SensorResponse> trazerSensoresProximos(Double latitude, Double longitude, Double distanciaMetros)
+    // Traz sensores ativos que estão dentro de um alcance máximo em metros num local específico
+    public Page<SensorResponse> buscarSensoresAtivosProximos(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable paginacao)
     {
-        double raio = distanciaMetros == null ? 2000.0 : distanciaMetros;
+        var sensores = repository.sensoresAtivosProximosDistancia(longitude, latitude, distanciaMetros, paginacao);
 
-        return repository.sensoresProximos(latitude, longitude, raio)
-                .stream().map(mapper::paraSensorResponse).toList();
+        return sensores.map(mapper::paraSensorResponse);
     }
 
+    // Todos os sensores de uma vizinhança (um bairro pode ter vários)
+    public List<SensorResponse> buscarSensoresPorVizinhanca(String vizinhanca)
+    {
+        var sensores = repository.findByVizinhancaIgnoreCase(vizinhanca.trim());
 
+        if (sensores.isEmpty())
+        {
+            throw new RecursoNaoEncontradoException("Nenhum sensor na vizinhança " + vizinhanca + ".");
+        }
 
+        return sensores.stream().map(mapper::paraSensorResponse).toList();
+    }
 }

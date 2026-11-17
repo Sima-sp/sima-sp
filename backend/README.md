@@ -19,11 +19,28 @@ Recebe os sensores, guarda leituras e previsões e serve o app e o site.
 
 2. Copie `.env.example` para `.env` e preencha. O `JWT_SECRET` precisa estar em Base64 e ter pelo
    menos 32 bytes: `openssl rand -base64 48`. O `.env` não vai para o git.
+   Para ter um administrador (as rotas `/admin/**` e o modo de demonstração exigem), defina
+   `ADMIN_EMAIL` e `ADMIN_SENHA` (8 caracteres ou mais): ele é criado ao subir, se o e-mail ainda
+   não existir.
 3. `./mvnw spring-boot:run` (porta 8080).
+
+## Acesso
+
+| Rota | Quem |
+|---|---|
+| `POST /auth/login`, `POST /usuarios/cadastro` | Qualquer um |
+| `GET /previsoes/**`, `GET /sensores/**` | Qualquer um (o mapa do app é público) |
+| `/usuarios/me/**`, `/leituras/**`, `/alertas/**` | Quem entrou (`Authorization: Bearer <token>`) |
+| `/admin/**`, `POST /previsoes/**` | Perfil ADMIN |
+| Qualquer outra | Ninguém (403) |
+
+O login devolve `{ token, tipo: "Bearer", expiraEmSegundos }`; o token traz `sub` (e-mail),
+`usuarioId` e `perfil`. Os dados do usuário vêm de `GET /usuarios/me`. Sair = o app apaga o token.
 
 ## Testes
 
-`./mvnw verify`. O teste de contexto precisa do MySQL do passo 1 e das variáveis do `.env`.
+`./mvnw verify`. Os testes que sobem o backend (contexto e `AutenticacaoIntegracaoTest`) precisam do
+MySQL do passo 1 e das variáveis do `.env`.
 
 ## Como o grupo trabalha
 
