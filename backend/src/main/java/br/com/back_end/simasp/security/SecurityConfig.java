@@ -219,6 +219,19 @@ public class SecurityConfig {
                                 "/alertas/**"
                         ).authenticated()
 
+                        // Relatos (#15): o mapa e as fotos aprovadas são públicos;
+                        // enviar exige login. A análise fica em /admin/**.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/ocorrencias",
+                                "/ocorrencias/*/foto"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/ocorrencias"
+                        ).authenticated()
+
                         // Bloqueia qualquer endpoint que não tenha
                         // uma regra declarada acima.
                         .anyRequest().denyAll()
