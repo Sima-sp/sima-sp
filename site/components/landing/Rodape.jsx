@@ -34,7 +34,7 @@ export default function Rodape() {
             </ul>
           </nav>
           <div>
-            <h2>Contato</h2>
+            <h2>{CONFIG.email ? "Contato" : "O código"}</h2>
             <ul>
               {CONFIG.email ? <li><a href={`mailto:${CONFIG.email}`}>{CONFIG.email}</a></li> : null}
               {CONFIG.repositorio ? <li><a href={CONFIG.repositorio}>O código no GitHub</a></li> : null}

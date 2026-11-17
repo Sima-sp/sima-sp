@@ -10,7 +10,8 @@ export const CONFIG = {
   /** O painel do sensor: página separada do app que mostra o protótipo funcionando. */
   urlSensor: `${urlApp}sensor.html`,
   instituicao: process.env.NEXT_PUBLIC_INSTITUICAO || "Etec Professor Horácio Augusto da Silveira",
-  email: process.env.NEXT_PUBLIC_EMAIL || "guirosseto08@gmail.com",
+  /** Contato no rodapé. Vazio = não aparece (a página não publica e-mail pessoal). */
+  email: process.env.NEXT_PUBLIC_EMAIL || "",
   repositorio: process.env.NEXT_PUBLIC_REPOSITORIO || "https://github.com/Sima-sp/sima-sp",
   /** Vídeo da demonstração (o de reserva da banca). Vazio = o link não aparece. */
   urlVideo: process.env.NEXT_PUBLIC_URL_VIDEO || "",

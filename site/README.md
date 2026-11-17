@@ -47,7 +47,7 @@ Tudo é opcional e tem valor padrão (`lib/config.js`). Para mudar, copie `.env.
 | `NEXT_PUBLIC_URL_APP` | Endereço do app: destino dos botões e o que aparece no telefone | `https://sima-sp.github.io/sima-sp/app/` |
 | `NEXT_PUBLIC_BASE_PATH` | Subpasta em que a página é publicada | vazio (raiz) |
 | `NEXT_PUBLIC_INSTITUICAO` | Nome da escola no texto do projeto e no rodapé | Etec Professor Horácio Augusto da Silveira |
-| `NEXT_PUBLIC_EMAIL` | Contato do rodapé | o e-mail em `lib/config.js` |
+| `NEXT_PUBLIC_EMAIL` | Contato do rodapé | vazio (o contato não aparece) |
 | `NEXT_PUBLIC_REPOSITORIO` | Link para o código | `https://github.com/Sima-sp/sima-sp` |
 | `NEXT_PUBLIC_URL_VIDEO` | Vídeo da demonstração, na seção "Quem fez" | vazio (o link não aparece) |
 | `NEXT_PUBLIC_URL_TCC` | Texto do TCC, na seção "Quem fez" | vazio (o link não aparece) |
@@ -156,7 +156,8 @@ npx qrcode -t png -e M -q 4 -w 1024 -d 0f1113 -l ffffff -o qr-sima.png "https://
   seções da IA, do sensor e do que é de verdade, os links reais e a publicação no GitHub Pages.
 - **16/11/2026:** começa a versão da banca (#64). O topo segue a regra nova da IA (a chuva extrema
   no MO-06 é alto, não crítico), a seção da IA diz que crítico é só medição, os limites do sensor
-  ficam num lugar só e entra a seção "Quem fez", com o material para a banca e o QR code.
+  ficam num lugar só e entra a seção "Quem fez", com o material para a banca e o QR code. O
+  e-mail pessoal saiu do rodapé.
 
 ## Como o grupo trabalha
 
