@@ -11,11 +11,6 @@ const TELAS = {
     depende: ["O registro de relatos no servidor do SIMA"],
     urgente: true,
   },
-  perfil: {
-    titulo: "Perfil e conta",
-    texto: "Com uma conta você vai poder salvar seus bairros, seguir bueiros, receber os avisos no celular e acompanhar seus relatos. O mapa continua aberto sem conta.",
-    depende: ["O login no servidor do SIMA", "Notificações no aparelho"],
-  },
 };
 
 export function EmConstrucao({ tela }) {

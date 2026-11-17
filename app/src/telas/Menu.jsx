@@ -1,14 +1,15 @@
 // Menu: atalhos para as telas e os ajustes do app (o app não tem barra de abas; tudo sai daqui).
-// Só aparecem ajustes que já funcionam. Notificações, conta e idioma entram com as próximas etapas.
+// Só aparecem ajustes que já funcionam. O primeiro item é a conta: o e-mail de quem entrou, ou o convite para entrar.
 
 import { useNavigate } from "react-router";
 import { usePreferencias } from "../preferencias/PreferenciasContexto";
 import { usePontos } from "../dados/PontosContexto";
+import { useConta } from "../conta/ContaContexto";
 import { horaCurta } from "../dados/modelo";
 import { useApresentacao } from "../componentes/PrimeiroUso";
 import { BotaoVoltar, Tela } from "../componentes/Tela";
 import {
-  IconeBairros, IconeFaisca, IconeInfo, IconeLua, IconeMais, IconeMapa, IconePessoa, IconeRepetir, IconeRota, IconeSensor, IconeSeta, IconeSino,
+  IconeBairros, IconeCadeado, IconeFaisca, IconeInfo, IconeLua, IconeMais, IconeMapa, IconePessoa, IconeRepetir, IconeRota, IconeSensor, IconeSeta, IconeSino,
   IconeSol,
 } from "../componentes/Icones";
 import { ESPERA_MS } from "../dados/vitrine";
@@ -21,6 +22,7 @@ export default function Menu() {
   const { tema, animacoes, vitrine, mudar } = usePreferencias();
   const { fonte, atualizadoEm, erro } = usePontos();
   const apresentacao = useApresentacao();
+  const conta = useConta();
 
   // Ícones do menu sem cor: no app, cor é reservada ao risco (as quatro do nível) e à ação (azul).
   const atalho = (rotulo, caminho, icone, emBreve = false) => (
@@ -42,8 +44,12 @@ export default function Menu() {
 
       <div className="grp" style={{ marginTop: 18 }}>
         <button type="button" className="row row-2" onClick={() => navegar("/perfil")}>
-          <span className="mu-av" aria-hidden="true"><IconePessoa /></span>
-          <span className="row-k" style={{ fontSize: 17.5 }}>Entrar ou criar conta<span className="row-sub">Em breve · o mapa funciona sem conta</span></span>
+          <span className="mu-av" aria-hidden="true">{conta.usuario ? <span className="ct-inicial">{conta.usuario.email[0].toUpperCase()}</span> : <IconePessoa />}</span>
+          {conta.usuario ? (
+            <span className="row-k ct-valor" style={{ fontSize: 17.5 }}>{conta.usuario.email}<span className="row-sub">Perfil e conta</span></span>
+          ) : (
+            <span className="row-k" style={{ fontSize: 17.5 }}>Entrar ou criar conta<span className="row-sub">O mapa funciona sem conta</span></span>
+          )}
           <span className="row-chev"><IconeSeta pequeno /></span>
         </button>
       </div>
@@ -71,6 +77,7 @@ export default function Menu() {
           <span className="row-k">Rever a apresentação</span>
           <span className="row-chev"><IconeSeta pequeno /></span>
         </button>
+        {atalho("Privacidade", "/privacidade", <IconeCadeado pequeno />)}
         {atalho("Sobre o SIMA", "/sobre", <IconeInfo pequeno />)}
       </div>
 
