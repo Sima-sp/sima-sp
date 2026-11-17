@@ -33,7 +33,7 @@ public class Usuario {
     @Column(name = "NR_LONGITUDE")
     private BigDecimal longitude;
 
-    @Column(name = "TX_PERMISSAO_ALERTA")
+    @Column(name = "FL_PERMISSAO_ALERTA")
     private Boolean permissaoAlerta;
 
     @Column(name = "TX_TIPO_USUARIO")

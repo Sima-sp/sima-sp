@@ -61,7 +61,7 @@ public class UsuarioController {
 
 
     @PatchMapping("/me/nova-localizacao")
-    public ResponseEntity<Void> atualizarSenha(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarLocalizacaoUsuarioRequest request)
+    public ResponseEntity<Void> atualizarLocalizacao(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarLocalizacaoUsuarioRequest request)
     {
         Long usuarioId = Long.valueOf(jwt.getClaimAsString("usuarioId"));
 
@@ -72,7 +72,7 @@ public class UsuarioController {
 
 
     @PatchMapping("/me/alterar-permissao-alerta")
-    public ResponseEntity<Void> atualizarSenha(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarPermissaoAlertaRequest request)
+    public ResponseEntity<Void> atualizarPermissaoAlerta(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarPermissaoAlertaRequest request)
     {
         Long usuarioId = Long.valueOf(jwt.getClaimAsString("usuarioId"));
 

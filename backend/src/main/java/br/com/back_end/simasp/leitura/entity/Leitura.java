@@ -33,7 +33,7 @@ public class Leitura {
     @Column(name = "NR_CHUVA_MM")
     private Double chuvaMM;
 
-    @Column(name = "DT_LEITURA")
+    @Column(name = "DT_DATA_LEITURA")
     private LocalDateTime dataLeitura = LocalDateTime.now();
 
     @Column(name = "TX_NIVEL_RISCO")

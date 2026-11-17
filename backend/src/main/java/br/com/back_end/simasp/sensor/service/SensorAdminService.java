@@ -30,18 +30,11 @@ public class SensorAdminService {
     // Cadastra um sensor
     public SensorResponse cadastrarSensor(SensorRequest request) {
 
-        boolean existeSensorNoLocal = repository.existsByLatitudeAndLongitude(request.latitude(), request.longitude());
-
-        if(!Boolean.TRUE.equals(existeSensorNoLocal))
+        // Dois sensores no mesmo ponto não fazem sentido (e o banco recusa: UQ_LOCALIZACAO_SENSOR).
+        // Vários sensores no mesmo bairro são normais: os pontos do modelo de IA têm vários por bairro.
+        if (repository.existsByLatitudeAndLongitude(request.latitude(), request.longitude()))
         {
-            throw new LocalizacaoSensorDuplicadaException("A latitude " + request.latitude() + " e longitude " + request.longitude() + " já estão inclusas singularmente no banco.");
-        }
-
-        boolean existeSensorNaVizinhanca = repository.existsByVizinhanca(request.vizinhanca());
-
-        if (!Boolean.TRUE.equals(existeSensorNaVizinhanca))
-        {
-            throw new LocalizacaoSensorDuplicadaException("Existe já um sensor na vizinhança " + request.vizinhanca() + ".");
+            throw new LocalizacaoSensorDuplicadaException("Já existe um sensor na latitude " + request.latitude() + " e longitude " + request.longitude() + ".");
         }
 
         Sensor sensor = repository.save(mapper.requestParaSensorEntidade(request));

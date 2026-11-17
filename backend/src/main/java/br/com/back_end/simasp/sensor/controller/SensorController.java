@@ -34,16 +34,17 @@ public class SensorController {
         return ResponseEntity.ok(service.buscarSensoresAtivosProximos(longitude, latitude, distanciaMetros, pageable));
     }
 
-    @GetMapping("/{id}")
+    // Só números: assim "/sensores/vizinhanca/..." nunca cai aqui.
+    @GetMapping("/{id:\\d+}")
     public ResponseEntity<SensorResponse> buscarSensorPorId(@PathVariable Long id)
     {
         return ResponseEntity.ok(service.buscarSensorPorId(id));
     }
 
-    @GetMapping("/{vizinhanca}")
-    public ResponseEntity<SensorResponse> buscarSensorPorVizinhanca(@PathVariable String vizinhanca)
+    @GetMapping("/vizinhanca/{vizinhanca}")
+    public ResponseEntity<List<SensorResponse>> buscarSensoresPorVizinhanca(@PathVariable String vizinhanca)
     {
-        return ResponseEntity.ok(service.buscarSensorPorVizinhanca(vizinhanca));
+        return ResponseEntity.ok(service.buscarSensoresPorVizinhanca(vizinhanca));
     }
 
 }

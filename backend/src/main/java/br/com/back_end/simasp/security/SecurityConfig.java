@@ -162,6 +162,17 @@ public class SecurityConfig {
                                 "/sensores/**"
                         ).permitAll()
 
+                        // Mapa e avisos do app: públicos para leitura.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/previsoes/**"
+                        ).permitAll()
+
+                        // Recalcular previsão é coisa de administrador (demonstração).
+                        .requestMatchers(
+                                "/previsoes/**"
+                        ).hasRole("ADMIN")
+
                         // Tudo que começa com /admin exige ROLE_ADMIN.
                         .requestMatchers(
                                 "/admin/**"
@@ -172,8 +183,6 @@ public class SecurityConfig {
                                 "/usuarios/me/**"
                         ).authenticated()
 
-                        // Por enquanto, seus endpoints de agendamento
-                        // listam todos os agendamentos.
                         .requestMatchers(
                                 "/leituras/**"
                         ).authenticated()

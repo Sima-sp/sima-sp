@@ -1,10 +1,7 @@
 package br.com.back_end.simasp.sensor.service;
 
-import br.com.back_end.simasp.exception.LocalizacaoSensorDuplicadaException;
 import br.com.back_end.simasp.exception.RecursoNaoEncontradoException;
-import br.com.back_end.simasp.sensor.dto.SensorRequest;
 import br.com.back_end.simasp.sensor.dto.SensorResponse;
-import br.com.back_end.simasp.sensor.entity.Sensor;
 import br.com.back_end.simasp.sensor.mapper.SensorMapper;
 import br.com.back_end.simasp.sensor.repository.SensorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,21 +13,13 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @Service
-
 public class SensorService {
+
     @Autowired
     private SensorRepository repository;
 
     @Autowired
     private SensorMapper mapper;
-
-    // Busca todos os sensores
-    /*
-    public List<SensorResponse> buscarSensores()
-    {
-        return repository.findAll().stream().map(mapper::paraSensorResponse).toList();
-    }
-    */
 
     // Busca sensor por ID
     public SensorResponse buscarSensorPorId(Long id)
@@ -47,11 +36,16 @@ public class SensorService {
         return sensores.map(mapper::paraSensorResponse);
     }
 
-    public SensorResponse buscarSensorPorVizinhanca(String vizinhanca)
+    // Todos os sensores de uma vizinhança (um bairro pode ter vários)
+    public List<SensorResponse> buscarSensoresPorVizinhanca(String vizinhanca)
     {
-        var sensor = repository.buscarSensorPorVizinhanca(vizinhanca).orElseThrow(() -> new RecursoNaoEncontradoException("Sensor com a vizinhança " + vizinhanca + " não encontrado."));
+        var sensores = repository.findByVizinhancaIgnoreCase(vizinhanca.trim());
 
-        return mapper.paraSensorResponse(sensor);
+        if (sensores.isEmpty())
+        {
+            throw new RecursoNaoEncontradoException("Nenhum sensor na vizinhança " + vizinhanca + ".");
+        }
+
+        return sensores.stream().map(mapper::paraSensorResponse).toList();
     }
-
 }

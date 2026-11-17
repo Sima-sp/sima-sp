@@ -1,0 +1,124 @@
+// Menu: atalhos para as telas e os ajustes do app (o app não tem barra de abas; tudo sai daqui).
+// Só aparecem ajustes que já funcionam. Notificações, conta e idioma entram com as próximas etapas.
+
+import { useNavigate } from "react-router";
+import { usePreferencias } from "../preferencias/PreferenciasContexto";
+import { usePontos } from "../dados/PontosContexto";
+import { horaCurta } from "../dados/modelo";
+import { useApresentacao } from "../componentes/PrimeiroUso";
+import { BotaoVoltar, Tela } from "../componentes/Tela";
+import {
+  IconeBairros, IconeFaisca, IconeInfo, IconeLua, IconeMais, IconeMapa, IconePessoa, IconeRepetir, IconeRota, IconeSensor, IconeSeta, IconeSino,
+  IconeSol,
+} from "../componentes/Icones";
+import { ESPERA_MS } from "../dados/vitrine";
+import { comecarVitrine } from "./useVitrine";
+
+const VERSAO = "0.1";
+
+export default function Menu() {
+  const navegar = useNavigate();
+  const { tema, animacoes, vitrine, mudar } = usePreferencias();
+  const { fonte, atualizadoEm, erro } = usePontos();
+  const apresentacao = useApresentacao();
+
+  // Ícones do menu sem cor: no app, cor é reservada ao risco (as quatro do nível) e à ação (azul).
+  const atalho = (rotulo, caminho, icone, emBreve = false) => (
+    <button type="button" className="row" onClick={() => navegar(caminho)}>
+      <span className="row-ic" aria-hidden="true">{icone}</span>
+      <span className="row-k">{rotulo}</span>
+      {emBreve ? <span className="row-v">Em breve</span> : null}
+      <span className="row-chev"><IconeSeta pequeno /></span>
+    </button>
+  );
+
+  let origem = "Dados de demonstração";
+  if (fonte === "api") origem = erro ? "Sem conexão com o servidor" : `Dados do servidor · ${atualizadoEm ? `atualizados às ${horaCurta(atualizadoEm)}` : "carregando"}`;
+
+  return (
+    <Tela titulo="Menu">
+      <header className="mu-top"><BotaoVoltar fechar /></header>
+      <div className="ltitle" style={{ paddingTop: 0 }}><h1 className="h1">Menu</h1></div>
+
+      <div className="grp" style={{ marginTop: 18 }}>
+        <button type="button" className="row row-2" onClick={() => navegar("/perfil")}>
+          <span className="mu-av" aria-hidden="true"><IconePessoa /></span>
+          <span className="row-k" style={{ fontSize: 17.5 }}>Entrar ou criar conta<span className="row-sub">Em breve · o mapa funciona sem conta</span></span>
+          <span className="row-chev"><IconeSeta pequeno /></span>
+        </button>
+      </div>
+
+      <h2 className="grp-t">Ir para</h2>
+      <div className="grp">
+        {atalho("Mapa", "/", <IconeMapa pequeno />)}
+        {atalho("Bairros", "/bairros", <IconeBairros pequeno />)}
+        {atalho("Rotas", "/rotas", <IconeRota pequeno />)}
+        {atalho("Avisos por região", "/alertas", <IconeSino pequeno />)}
+        {atalho("Reportar problema", "/reportar", <IconeMais pequeno />, true)}
+      </div>
+
+      <h2 className="grp-t">Entender</h2>
+      <div className="grp">
+        {atalho("Como a IA funciona", "/ia", <IconeFaisca pequeno />)}
+        {/* O sensor ao vivo é uma página separada do app (sensor.html), de tela inteira. */}
+        <a className="row mu-link" href="./sensor.html">
+          <span className="row-ic" aria-hidden="true"><IconeSensor pequeno /></span>
+          <span className="row-k">Sensor ao vivo</span>
+          <span className="row-chev"><IconeSeta pequeno /></span>
+        </a>
+        <button type="button" className="row" onClick={() => { apresentacao.abrir(); navegar("/"); }}>
+          <span className="row-ic" aria-hidden="true"><IconeRepetir pequeno /></span>
+          <span className="row-k">Rever a apresentação</span>
+          <span className="row-chev"><IconeSeta pequeno /></span>
+        </button>
+        {atalho("Sobre o SIMA", "/sobre", <IconeInfo pequeno />)}
+      </div>
+
+      <h2 className="grp-t">Aparência</h2>
+      <div className="grp" style={{ padding: 10 }}>
+        <div className="seg mu-seg" role="group" aria-label="Tema do aplicativo">
+          <button type="button" className={tema === "escuro" ? "seg-on" : ""} aria-pressed={tema === "escuro"} onClick={() => mudar({ tema: "escuro" })}>
+            <IconeLua pequeno />Noturno
+          </button>
+          <button type="button" className={tema === "claro" ? "seg-on" : ""} aria-pressed={tema === "claro"} onClick={() => mudar({ tema: "claro" })}>
+            <IconeSol pequeno />Claro
+          </button>
+        </div>
+      </div>
+
+      <h2 className="grp-t" id="rotulo-animacoes">Animações</h2>
+      <div className="grp" style={{ padding: 10 }}>
+        <div className="seg mu-seg" role="group" aria-labelledby="rotulo-animacoes">
+          {[["sistema", "Do aparelho"], ["ligadas", "Ligadas"], ["reduzidas", "Reduzidas"]].map(([valor, rotulo]) => (
+            <button key={valor} type="button" className={animacoes === valor ? "seg-on" : ""} aria-pressed={animacoes === valor}
+              onClick={() => mudar({ animacoes: valor })}>{rotulo}</button>
+          ))}
+        </div>
+      </div>
+      <p className="micro" style={{ padding: "8px 36px 0" }}>
+        “Do aparelho” segue a configuração de acessibilidade do celular ou computador.
+      </p>
+
+      {/* Modo vitrine: só na demonstração, que é onde há clima para trocar (src/telas/useVitrine.js). */}
+      {fonte === "demo" ? (
+        <>
+          <h2 className="grp-t" id="rotulo-vitrine">Modo vitrine</h2>
+          <div className="grp" style={{ padding: 10 }}>
+            <div className="seg mu-seg" role="group" aria-labelledby="rotulo-vitrine">
+              <button type="button" className={vitrine ? "" : "seg-on"} aria-pressed={!vitrine} onClick={() => mudar({ vitrine: false })}>Desligado</button>
+              <button type="button" className={vitrine ? "seg-on" : ""} aria-pressed={vitrine} onClick={() => mudar({ vitrine: true })}>Ligado</button>
+            </div>
+            {vitrine ? (
+              <button type="button" className="btn btn-bone mu-vitrine-agora" onClick={() => { navegar("/"); comecarVitrine(); }}>Começar agora</button>
+            ) : null}
+          </div>
+          <p className="micro" style={{ padding: "8px 36px 0" }}>
+            Para feiras: depois de {Math.round(ESPERA_MS / 1000)} segundos sem ninguém tocar, o app troca o clima e passeia pelo mapa sozinho. Para no primeiro toque. Ligado, o app tenta manter a tela acesa: deixe o aparelho na tomada.
+          </p>
+        </>
+      ) : null}
+
+      <p className="micro mu-foot">SIMA · versão {VERSAO}<br />{origem}</p>
+    </Tela>
+  );
+}

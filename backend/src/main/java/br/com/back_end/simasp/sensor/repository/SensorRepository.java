@@ -1,6 +1,7 @@
 package br.com.back_end.simasp.sensor.repository;
 
 import br.com.back_end.simasp.sensor.entity.Sensor;
+import br.com.back_end.simasp.sensor.enums.StatusSensor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,33 +11,50 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
+public interface SensorRepository extends JpaRepository<Sensor, Long> {
 
-public interface SensorRepository extends JpaRepository <Sensor, Long> {
-
+    /** Os tipos têm que ser os mesmos da entidade (BigDecimal), senão o Spring Data recusa o método. */
     boolean existsByLatitudeAndLongitude(BigDecimal latitude, BigDecimal longitude);
-    boolean existsByVizinhanca(String vizinhanca);
 
+    /** Todos os sensores de uma vizinhança (pode haver vários no mesmo bairro). */
+    List<Sensor> findByVizinhancaIgnoreCase(String vizinhanca);
 
+    /**
+     * Sensores com um status, a até {@code distanciaMetros} de um ponto, paginados.
+     *
+     * <p>Consulta nativa: {@code ST_Distance_Sphere} e {@code POINT} são funções do MySQL e não
+     * existem em JPQL (o Hibernate recusaria a consulta ao subir).</p>
+     */
+    @Query(value = """
+            SELECT *
+            FROM TBL_SENSOR s
+            WHERE s.TX_STATUS_SENSOR = :status
+              AND ST_Distance_Sphere(POINT(s.NR_LONGITUDE, s.NR_LATITUDE), POINT(:longitude, :latitude)) <= :distanciaMetros
+            """,
+            countQuery = """
+            SELECT COUNT(*)
+            FROM TBL_SENSOR s
+            WHERE s.TX_STATUS_SENSOR = :status
+              AND ST_Distance_Sphere(POINT(s.NR_LONGITUDE, s.NR_LATITUDE), POINT(:longitude, :latitude)) <= :distanciaMetros
+            """,
+            nativeQuery = true)
+    Page<Sensor> sensoresProximosPorStatus(@Param("status") String status,
+                                           @Param("longitude") BigDecimal longitude,
+                                           @Param("latitude") BigDecimal latitude,
+                                           @Param("distanciaMetros") Integer distanciaMetros,
+                                           Pageable pageable);
 
-    // Busca sensores filtrando pelos ativos e por uma distância máxima em metros.
-    @Query(value = "SELECT s FROM Sensor s WHERE ST_Distance_Sphere(POINT(s.longitude, s.latitude), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND s.status = 'ATIVO'",
-            countQuery = "SELECT COUNT(*) FROM Sensor s WHERE ST_Distance_Sphere(POINT(s.longitude, s.latitude), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND s.status = 'ATIVO'")
-    Page<Sensor> sensoresAtivosProximosDistancia(@Param("longitude_usuario") BigDecimal longitude, @Param("latitude_usuario") BigDecimal latitude, @Param("distancia_metros") Integer distanciaMetros, Pageable pageable);
+    default Page<Sensor> sensoresAtivosProximosDistancia(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable pageable) {
+        return sensoresProximosPorStatus(StatusSensor.ATIVO.name(), longitude, latitude, distanciaMetros, pageable);
+    }
 
-    // Busca sensores filtrando por status de sensor em MANUTENÇÃO
-    @Query(value = "SELECT s FROM Sensor s WHERE ST_Distance_Sphere(POINT(s.longitude, s.latitude), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND s.status = 'MANUTENCAO'",
-            countQuery = "SELECT COUNT(*) FROM Sensor s WHERE ST_Distance_Sphere(POINT(s.longitude, s.latitude), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND s.status = 'MANUTENCAO'")
-    Page<Sensor> sensoresManutencaoProximosDistancia(@Param("longitude_usuario") BigDecimal longitude, @Param("latitude_usuario") BigDecimal latitude, @Param("distancia_metros") Integer distanciaMetros, Pageable pageable);
+    default Page<Sensor> sensoresManutencaoProximosDistancia(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable pageable) {
+        return sensoresProximosPorStatus(StatusSensor.MANUTENCAO.name(), longitude, latitude, distanciaMetros, pageable);
+    }
 
-    // Busca sensores filtrando por status de sensor em INATIVO
-    @Query(value = "SELECT s FROM Sensor s WHERE ST_Distance_Sphere(POINT(s.longitude, s.latitude), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND s.status = 'INATIVO'",
-    countQuery = "SELECT COUNT(*) FROM Sensor s WHERE ST_Distance_Sphere(POINT(s.longitude, s.latitude), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND s.status = 'INATIVO'")
-    Page<Sensor> sensoresInativosProximosDistancia(@Param("longitude_usuario") BigDecimal longitude, @Param("latitude_usuario") BigDecimal latitude, @Param("distancia_metros") Integer distanciaMetros, Pageable pageable);
-
-    @Query(value = "SELECT s FROM Sensor s WHERE s.vizinhanca = :vizinhanca")
-    Optional<Sensor> buscarSensorPorVizinhanca(@Param("vizinhanca") String vizinhanca);
-
+    default Page<Sensor> sensoresInativosProximosDistancia(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable pageable) {
+        return sensoresProximosPorStatus(StatusSensor.INATIVO.name(), longitude, latitude, distanciaMetros, pageable);
+    }
 }

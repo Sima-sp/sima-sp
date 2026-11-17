@@ -47,7 +47,7 @@ public class UsuarioService {
 
         usuario.setEmail(emailFormatado);
         usuario.setTelefone(telefoneFormatado);
-        usuario.setSenhaHash(passwordEncoder.encode(request.senhaHash()));
+        usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
         usuario.setTipoUsuario(TipoUsuarioEnum.CIDADAO);
         usuario.setAtivo(true);
 

@@ -17,8 +17,8 @@ public record CriarUsuarioRequest(
         String telefone,
 
         @NotNull(message = "A senha deve ser inserida.")
-        @Size(min = 8, max = 72, message = "A senha deve ter entre 9 a 72 caracteres.")
-        String senhaHash,
+        @Size(min = 8, max = 72, message = "A senha deve ter entre 8 e 72 caracteres.")
+        String senha,
 
         @NotNull(message = "A latitude deve ser inserida.")
         @Digits(integer = 3, fraction = 6, message = "Latitude deve possuir até 3 dígitos inteiros e 6 decimais.")
@@ -33,7 +33,6 @@ public record CriarUsuarioRequest(
         BigDecimal longitude,
 
         @NotNull(message = "A permissão de alerta deve ser inserida.")
-        @Size(max = 3, message = "Tamanho da permissão de alerta excedida.")
         Boolean permissaoAlerta
 ) {
 }

@@ -1,0 +1,62 @@
+# Atualizações de dependências: uma vez por semana, às segundas, um PR por pasta.
+# Versões major ficam de fora até depois da banca (03/12/2026), para não quebrar nada no fim.
+# Bibliotecas Python da IA são atualizadas à mão, junto com um novo treino (ver ia/README.md).
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule: { interval: weekly, day: monday, timezone: America/Sao_Paulo }
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      backend:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /app
+    schedule: { interval: weekly, day: monday, timezone: America/Sao_Paulo }
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      app:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /site
+    schedule: { interval: weekly, day: monday, timezone: America/Sao_Paulo }
+    open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      site:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /iot/servidor-sensor
+    schedule: { interval: weekly, day: monday, timezone: America/Sao_Paulo }
+    open-pull-requests-limit: 1
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      servidor-sensor:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /ia
+    schedule: { interval: weekly, day: monday, timezone: America/Sao_Paulo }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, timezone: America/Sao_Paulo }
+    groups:
+      actions:
+        patterns: ["*"]
