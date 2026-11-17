@@ -194,6 +194,8 @@
 .bs-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px; }
 .bs-vazio { padding: 18px 36px; }
 .bs-nota { padding: 18px 36px 0; }
+/* "Tentar de novo" quando a busca de endereço não respondeu. */
+.bs-tentar { margin-top: 12px; min-height: 44px; }
 /* Nos lugares, o ícone da direita diz o que o toque faz: traçar a rota. Azul, por ser a ação. */
 .bs-rota { color: var(--route); opacity: 1; }
 

@@ -1,8 +1,13 @@
 // Lugares conhecidos de São Paulo, oferecidos como atalho na tela de rotas. Servem para traçar
 // uma rota com um toque, sem digitar, e continuam valendo se a busca de endereço estiver fora do
-// ar. As posições foram conferidas na busca de endereço (dados do OpenStreetMap) em 06/10/2026.
+// ar. As posições foram conferidas na busca de endereço (dados do OpenStreetMap) em 06/10/2026;
+// a da Etec, em 16/11/2026.
+//
+// A Etec vem primeiro: é de onde a banca vai querer traçar a rota na apresentação.
+// O detalhe leva a rua, para "rua alcantara" também achá-la sem internet.
 
 export const LUGARES = [
+  { id: "etec-horacio", nome: "Etec Horácio Augusto da Silveira", detalhe: "Rua Alcântara · Vila Guilherme", lon: -46.59639, lat: -23.5194 },
   { id: "paulista", nome: "Avenida Paulista", detalhe: "MASP · Bela Vista", lon: -46.6559, lat: -23.5614 },
   { id: "se", nome: "Praça da Sé", detalhe: "Centro", lon: -46.63308, lat: -23.55039 },
   { id: "tiete", nome: "Terminal Rodoviário Tietê", detalhe: "Santana", lon: -46.6241, lat: -23.5166 },
