@@ -503,3 +503,12 @@ a.row.mu-link, a.row.mu-link:hover { color: var(--bone-100); text-decoration: no
 .rl-cartao { padding-top: 12px; }
 .rl-cartao-texto { margin-top: 12px; color: var(--bone-100); overflow-wrap: anywhere; }
 .rl-cartao-foto { display: block; width: 100%; max-height: 200px; margin-top: 12px; object-fit: cover; border-radius: 18px; background: var(--fill-2); }
+
+/* ───────────── Administração ───────────── */
+.ad-relato { margin-top: 10px; }
+.ad-linha { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--sep); }
+.ad-linha:last-child { border-bottom: 0; }
+.ad-acao { min-height: 42px; padding: 0 16px; flex: none; }
+.ad-sensor { flex-wrap: wrap; }
+.ad-sensor .row-k { flex: 1 1 160px; }
+.ad-sensor .seg button { padding: 0 10px; font-size: 14px; }
