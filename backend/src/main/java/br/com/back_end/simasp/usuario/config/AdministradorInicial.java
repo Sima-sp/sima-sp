@@ -18,7 +18,7 @@ import java.util.Locale;
 /**
  * Cria o primeiro administrador ao subir o backend.
  *
- * <p>O cadastro público ({@code POST /usuarios/cadastro}) sempre cria CIDADAO, então sem isto
+ * <p>O cadastro público ({@code POST /usuarios}) sempre cria CIDADAO, então sem isto
  * ninguém consegue usar as rotas {@code /admin/**} (inclusive o modo de demonstração). Só age se
  * {@code ADMIN_EMAIL} e {@code ADMIN_SENHA} estiverem definidos e o e-mail ainda não existir: não
  * muda senha nem perfil de quem já está no banco.</p>

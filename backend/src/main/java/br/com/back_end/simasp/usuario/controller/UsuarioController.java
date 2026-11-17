@@ -3,28 +3,27 @@ package br.com.back_end.simasp.usuario.controller;
 import br.com.back_end.simasp.usuario.dto.*;
 import br.com.back_end.simasp.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
-
+/**
+ * Conta do usuário. Nomes das rotas (#20): substantivo no caminho, verbo HTTP dizendo a ação.
+ */
 @RestController
 @RequestMapping("/usuarios")
-//@CrossOrigin("*")
-
 public class UsuarioController {
 
-    @Autowired
-    private UsuarioService service;
+    private final UsuarioService service;
 
+    public UsuarioController(UsuarioService service) {
+        this.service = service;
+    }
 
-    @PostMapping("/cadastro")
+    /** Criar conta (sempre CIDADAO). Público. */
+    @PostMapping
     public ResponseEntity<UsuarioResponse> cadastrarUsuario(@Valid @RequestBody CriarUsuarioRequest request)
     {
         UsuarioResponse response = service.cadastrarUsuario(request);
@@ -34,53 +33,25 @@ public class UsuarioController {
     @GetMapping("/me")
     public ResponseEntity<UsuarioResponse> buscarMeuPerfil(@AuthenticationPrincipal Jwt jwt)
     {
-        Long usuarioId = Long.valueOf(jwt.getClaimAsString("usuarioId"));
-        UsuarioResponse response = service.buscarMeuPerfil(usuarioId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(service.buscarMeuPerfil(usuarioId(jwt)));
     }
 
-    @PatchMapping("/me/novo-telefone")
-    public ResponseEntity<Void> atualizarTelefone(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarTelefoneUsuarioRequest request)
+    /** Telefone, localização (latitude e longitude juntas) e permissão de alerta: só o que vier. */
+    @PatchMapping("/me")
+    public ResponseEntity<UsuarioResponse> atualizarPerfil(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AtualizarPerfilRequest request)
     {
-        Long usuarioId = Long.valueOf(jwt.getClaimAsString("usuarioId"));
-
-        service.atualizarTelefone(request, usuarioId);
-
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(service.atualizarPerfil(request, usuarioId(jwt)));
     }
 
-    @PatchMapping("/me/nova-senha")
+    @PutMapping("/me/senha")
     public ResponseEntity<Void> atualizarSenha(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarSenhaUsuarioRequest request)
     {
-        Long usuarioId = Long.valueOf(jwt.getClaimAsString("usuarioId"));
-
-        service.atualizarSenha(request, usuarioId);
-
+        service.atualizarSenha(request, usuarioId(jwt));
         return ResponseEntity.noContent().build();
     }
 
-
-    @PatchMapping("/me/nova-localizacao")
-    public ResponseEntity<Void> atualizarLocalizacao(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarLocalizacaoUsuarioRequest request)
+    private static Long usuarioId(Jwt jwt)
     {
-        Long usuarioId = Long.valueOf(jwt.getClaimAsString("usuarioId"));
-
-        service.atualizarLocalizacao(request, usuarioId);
-
-        return ResponseEntity.noContent().build();
+        return Long.valueOf(jwt.getClaimAsString("usuarioId"));
     }
-
-
-    @PatchMapping("/me/alterar-permissao-alerta")
-    public ResponseEntity<Void> atualizarPermissaoAlerta(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarPermissaoAlertaRequest request)
-    {
-        Long usuarioId = Long.valueOf(jwt.getClaimAsString("usuarioId"));
-
-        service.atualizarPermissaoAlerta(request, usuarioId);
-
-        return ResponseEntity.noContent().build();
-    }
-
-
-
 }

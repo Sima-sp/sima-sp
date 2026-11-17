@@ -80,7 +80,7 @@ class LeituraIntegracaoTest {
                 {"latitude": %.6f, "longitude": %.6f, "vizinhanca": "Bancada", "dataInstalacao": "2026-11-01T10:00:00",
                  "codigo": "%s", "profundidadeCm": %s, "distanciaCheioCm": %s}
                 """, lat, lon, codigo, profundidade, cheio);
-        HttpResponse<String> criado = enviar("POST", "/admin/sensores/cadastro-sensor", admin, json, null);
+        HttpResponse<String> criado = enviar("POST", "/admin/sensores", admin, json, null);
         assertThat(criado.statusCode()).as(criado.body()).isEqualTo(201);
         long id = Long.parseLong(campo(criado, "\"id\"\\s*:\\s*(\\d+)"));
 
@@ -184,8 +184,8 @@ class LeituraIntegracaoTest {
         String admin = tokenAdmin();
         SensorDeTeste s = sensor(admin, 60.0, 20.0, true);
 
-        HttpResponse<String> inativado = enviar("PATCH", "/admin/sensores/modificar-sensor/" + s.id() + "/inativar", admin, null, null);
-        assertThat(inativado.statusCode()).as(inativado.body()).isEqualTo(204);
+        HttpResponse<String> inativado = enviar("PATCH", "/admin/sensores/" + s.id(), admin, "{\"status\":\"INATIVO\"}", null);
+        assertThat(inativado.statusCode()).as(inativado.body()).isEqualTo(200);
         assertThat(leitura(s.chave(), s.codigo(), "30").statusCode()).isEqualTo(409);
     }
 

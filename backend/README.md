@@ -59,17 +59,38 @@ como sensores, para o mapa inteiro mostrar a previsão real, e marca o sensor de
 
 ## Acesso
 
+A documentação completa das rotas fica no **Swagger**: `http://localhost:8080/swagger-ui.html`.
+Para as rotas com login, entre em `POST /auth/login` e cole o `token` em **Authorize**. Na banca,
+o Swagger serve de tela do admin (cadastrar sensor, gerar a chave, resolver alerta).
+
 | Rota | Quem |
 |---|---|
-| `POST /auth/login`, `POST /usuarios/cadastro` | Qualquer um |
+| `POST /auth/login`, `POST /usuarios` (criar conta) | Qualquer um |
 | `POST /leituras` | O servidor do sensor, com a chave do sensor em `X-Sensor-Chave` |
-| `GET /previsoes/**`, `GET /sensores/**` | Qualquer um (o mapa do app é público) |
-| `/usuarios/me/**`, `/leituras/**`, `/alertas/**` | Quem entrou (`Authorization: Bearer <token>`) |
+| `GET /previsoes/**`, `GET /sensores/**`, `GET /alertas` | Qualquer um (o mapa do app é público) |
+| `GET /swagger-ui.html`, `GET /v3/api-docs` | Qualquer um |
+| `GET` e `PATCH /usuarios/me`, `PUT /usuarios/me/senha` | Quem entrou (`Authorization: Bearer <token>`) |
 | `/admin/**`, `POST /previsoes/**` | Perfil ADMIN |
 | Qualquer outra | Ninguém (403) |
 
 O login devolve `{ token, tipo: "Bearer", expiraEmSegundos }`; o token traz `sub` (e-mail),
 `usuarioId` e `perfil`. Os dados do usuário vêm de `GET /usuarios/me`. Sair = o app apaga o token.
+
+Os nomes seguem uma regra só (#20): substantivo no caminho e o verbo HTTP dizendo a ação.
+
+| Para quê | Rota |
+|---|---|
+| Criar conta | `POST /usuarios` |
+| Ver e mudar o perfil (só os campos enviados) | `GET` e `PATCH /usuarios/me` |
+| Trocar a senha | `PUT /usuarios/me/senha` |
+| Sensores (filtros opcionais) | `GET /sensores?latitude=&longitude=&raio=&status=` |
+| Um sensor; os de um bairro | `GET /sensores/{id}`; `GET /sensores/vizinhanca/{nome}` |
+| Cadastrar sensor | `POST /admin/sensores` |
+| Mudar status, local, código, profundidade… (só os campos enviados) | `PATCH /admin/sensores/{id}` |
+| Gerar ou trocar a chave do sensor | `POST /admin/sensores/{id}/chave` |
+| Usuários perto de um ponto | `GET /admin/usuarios?latitude=&longitude=&raio=` |
+| Ativar ou desativar conta | `PATCH /admin/usuarios/{email}` com `{ "ativo": false }` |
+| Alertas | `GET /alertas?status=ATIVO`; `GET /admin/alertas`; `PATCH /admin/alertas/{id}/resolver` |
 
 ## Leituras do sensor
 
@@ -88,8 +109,7 @@ ou campo faltando.
 Para ligar um sensor, um ADMIN:
 
 1. cadastra o código, a profundidade (sensor até o fundo) e a distância de cheio (sensor até a
-   água com o bueiro cheio) em `PATCH /admin/sensores/modificar-sensor/{id}/bancada` (ou já no
-   cadastro do sensor);
+   água com o bueiro cheio) em `PATCH /admin/sensores/{id}` (ou já no cadastro do sensor);
 2. gera a chave em `POST /admin/sensores/{id}/chave`. Ela aparece **só nessa resposta** (o banco
    guarda o hash); chamar de novo troca a chave.
 
