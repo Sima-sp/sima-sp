@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { HashRouter, Navigate, Route, Routes } from "react-router";
 import { ProvedorPreferencias } from "./preferencias/PreferenciasContexto";
 import { ProvedorPontos } from "./dados/PontosContexto";
+import { ProvedorConta } from "./conta/ContaContexto";
 import { ProvedorRotas } from "./rotas/RotaContexto";
 import { DefinicoesSvg } from "./componentes/Tampa";
 import { ProvedorRota } from "./componentes/ganchos";
@@ -20,6 +21,8 @@ import Rotas from "./telas/Rotas";
 import Avisos from "./telas/Avisos";
 import ComoFunciona from "./telas/ComoFunciona";
 import { EmConstrucao, Sobre } from "./telas/EmConstrucao";
+import { Cadastro, Entrar, Perfil } from "./telas/Conta";
+import Privacidade from "./telas/Privacidade";
 import { PrimeiroUso, ProvedorApresentacao } from "./componentes/PrimeiroUso";
 
 /** O painel do sensor é outra página (sensor.html), fora do app: troca de página ao chegar aqui. */
@@ -33,6 +36,7 @@ export default function App() {
     <HashRouter>
       <ProvedorRota>
       <ProvedorPreferencias>
+        <ProvedorConta>
         <ProvedorPontos>
         <ProvedorRotas>
         <ProvedorApresentacao>
@@ -56,7 +60,10 @@ export default function App() {
               <Route path="/ia" element={<ComoFunciona />} />
               {/* O sensor ao vivo virou uma página separada (sensor.html); o endereço antigo leva até ela. */}
               <Route path="/sensor" element={<IrParaOPainel />} />
-              <Route path="/perfil" element={<EmConstrucao tela="perfil" />} />
+              <Route path="/perfil" element={<Perfil />} />
+              <Route path="/entrar" element={<Entrar />} />
+              <Route path="/cadastro" element={<Cadastro />} />
+              <Route path="/privacidade" element={<Privacidade />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             {/* Apresentação de primeiro uso: por cima de tudo, só na primeira abertura. */}
@@ -65,6 +72,7 @@ export default function App() {
         </ProvedorApresentacao>
         </ProvedorRotas>
         </ProvedorPontos>
+        </ProvedorConta>
       </ProvedorPreferencias>
       </ProvedorRota>
     </HashRouter>

@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useMatch, useNavigate, useSearchParams } from "react-router";
 import { MapaBase } from "../mapa/MapaBase";
 import { usePontos } from "../dados/PontosContexto";
+import { useConta } from "../conta/ContaContexto";
 import { usePreferencias } from "../preferencias/PreferenciasContexto";
 import { useRotas } from "../rotas/RotaContexto";
 import { REGRAS, resumoDaRota, textoDistancia, textoDuracao, viasPrincipais } from "../rotas/planejar";
@@ -51,6 +52,7 @@ export default function Mapa() {
   const painelRef = useRef(null);
   const rotas = useRotas();
   const apresentacao = useApresentacao();
+  const conta = useConta();
 
   const [recado, setRecado] = useState(null);
   // Aviso por região: o que os bueiros de cada subprefeitura dizem em conjunto (src/dados/regioes.js).
@@ -242,6 +244,12 @@ export default function Mapa() {
             </button>
           ) : null}
           {recado ? <p className="lg mp-aviso" role="status">{recado}</p> : null}
+          {/* A sessão terminou sozinha (venceu, ou a conta foi desativada): avisa e leva a entrar. */}
+          {conta.recado ? (
+            <button type="button" className="lg mp-aviso" role="status" onClick={() => { conta.dispensarRecado(); if (conta.disponivel) navegar("/entrar"); }}>
+              <span className="mp-aviso-dot" aria-hidden="true" />{conta.recado}
+            </button>
+          ) : null}
           {vitrine.rodando ? (
             <p className="lg mp-aviso mp-vitrine" role="status"><span className="mp-aviso-dot" aria-hidden="true" />Modo vitrine · toque para usar o app</p>
           ) : null}
@@ -258,8 +266,8 @@ export default function Mapa() {
           <IconeBusca />
           <span className="mbar-ph">Buscar lugar ou bueiro</span>
         </button>
-        <button type="button" className="mbar-av" onClick={() => navegar("/perfil")} aria-label="Perfil">
-          <IconePessoa />
+        <button type="button" className="mbar-av" onClick={() => navegar("/perfil")} aria-label={conta.usuario ? `Perfil de ${conta.usuario.email}` : "Entrar ou criar conta"}>
+          {conta.usuario ? <span className="ct-inicial">{conta.usuario.email[0].toUpperCase()}</span> : <IconePessoa />}
         </button>
       </div>
 

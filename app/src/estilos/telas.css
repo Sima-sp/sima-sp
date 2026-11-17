@@ -446,3 +446,28 @@ a.row.mu-link, a.row.mu-link:hover { color: var(--bone-100); text-decoration: no
   .vg-top { right: auto; width: calc(var(--coluna) - 20px); }
   .vg-centralizar { right: 24px; bottom: 28px; }
 }
+
+/* ───────────── Conta: Entrar, Criar conta, Perfil e Privacidade ───────────── */
+.ct-form { display: flex; flex-direction: column; gap: 18px; padding: 12px 0 8px; }
+.ct-campo .label { color: var(--bone-300); }
+.ct-erro { font-size: 14.5px; line-height: 1.4; font-weight: 600; color: var(--r4); }
+.input[aria-invalid="true"] { border-color: var(--r4); }
+.ct-recado { padding: 12px 14px; border-radius: 14px; background: var(--fill-2); color: var(--bone-100); }
+.ct-enviar { width: 100%; }
+.ct-troca a, .ct-check a, .ec a:not(.btn) { color: var(--route); font-weight: 700; }
+.ct-grupo { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ct-grupo legend { padding: 0; margin-bottom: 2px; color: var(--bone-300); }
+.ct-local { display: flex; flex-wrap: wrap; gap: 10px; }
+.ct-local > * { flex: 1 1 200px; min-width: 0; }
+.ct-select { appearance: auto; padding-right: 8px; }
+.ct-check { display: flex; align-items: flex-start; gap: 12px; font-size: 15.5px; line-height: 1.4; color: var(--bone-100); cursor: pointer; }
+.ct-check input { width: 24px; height: 24px; flex: none; margin: 0; accent-color: var(--route-deep); }
+.ct-botoes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.ct-botoes > * { flex: 1 1 140px; }
+.ct-bloco { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.ct-nota { padding: 8px 36px 0; }
+.ct-valor { overflow-wrap: anywhere; }
+.ct-placa-t { color: var(--bone-50); font-size: 15px; }
+.ct-perigo { background: #b3123f; color: #ffffff; } /* fixo nos dois temas: o --r4 do noturno não dá contraste com letra branca */
+.ct-inicial { font-family: var(--f-ui); font-size: 20px; font-weight: 800; line-height: 1; }
+.row.row-blue, .row.row-red { justify-content: center; }

@@ -568,6 +568,35 @@ Para ver o app reagindo sem chuva de verdade, use o modo de demonstração do ba
 (`POST /admin/demonstracao/iniciar`, ver `backend/docs/previsao-ia.md`). As previsões vêm com
 `simulada: true` e o app mostra o aviso **"Simulação · chuva de teste ligada"**.
 
+### Conta
+
+O mapa, a busca e as rotas funcionam **sem conta**. A conta serve para receber o aviso de um bueiro
+por perto e para mandar relatos.
+
+| Tela | Endereço | Rota do backend |
+|---|---|---|
+| Entrar | `#/entrar` | `POST /auth/login` e, em seguida, `GET /usuarios/me` |
+| Criar conta | `#/cadastro` | `POST /usuarios` (e já entra) |
+| Perfil | `#/perfil` | `PATCH /usuarios/me` (avisos e localização), `DELETE /usuarios/me` (apagar a conta) |
+| Privacidade | `#/privacidade` | nenhuma: é o texto que o cadastro manda ler |
+
+- **Sessão** (`src/conta/sessao.js`): `{ token, expiraEm, usuario }` em `localStorage`, na chave
+  `sima.conta`. Ao abrir o app, a que venceu é descartada. A senha nunca é guardada.
+- **O token só vai nas rotas da conta** (`pedir(..., { comConta: true })`, em `src/dados/api.js`).
+  Nas públicas (`/previsoes`) ele não é enviado: o backend recusa com 401 qualquer pedido com
+  token vencido, mesmo em rota aberta, e o mapa não pode parar por isso.
+- **401 numa rota da conta** apaga a sessão e o app mostra "Sua sessão expirou. Entre de novo."
+  Vale também para conta desativada ou apagada: o backend deixa de aceitar o token na hora.
+- **Sair** apaga a sessão do aparelho. O backend não tem rota de logout (o token é sem estado).
+- **Cadastro**: e-mail, telefone, senha (8 ou mais), localização de referência e a caixa "Li para
+  que meus dados são usados". A localização é escolhida pela pessoa ("onde estou agora" ou um
+  bairro da lista) e vai com 3 casas decimais, cerca de 100 m.
+- **Login errado 5 vezes**: o backend responde 429 e o app diz quanto falta para tentar de novo.
+- **Demonstração** (sem backend): as três telas dizem "A conta funciona com o servidor do SIMA" e
+  não fazem pedido nenhum.
+
+Os testes (`src/conta/conta.test.js`) sobem um servidor de mentira que responde como o backend.
+
 ### O que acontece quando o backend não responde
 
 O app **não** troca para os dados de demonstração: num app de risco, mostrar dados inventados
@@ -590,7 +619,7 @@ src/
   dados/
     niveis.js              escala de risco: Baixo, Médio, Alto, Crítico
     modelo.js              formato do "ponto", conversão do backend e textos da tela
-    api.js                 GET /previsoes
+    api.js                 conversa com o backend: `pedir` (erros com texto para a tela, token só nas rotas da conta) e GET /previsoes
     demo.js                demonstração: clima, sensibilidade de cada ponto, troca gradual
     pontosCapital.js       os 136 pontos da capital usados na demonstração
     ruasDosBueiros.js      GERADO: o trecho de rua em volta de cada ponto (npm run ruas)
@@ -603,6 +632,11 @@ src/
     demo.test.js           testes da demonstração
     regioes.test.js        testes do aviso por região
     simulador.test.js      testes do simulador
+  conta/
+    sessao.js              a sessão guardada no aparelho (token, validade, usuário) e quem é avisado quando ela muda
+    conta.js               entrar, cadastrar, sair, mudar o perfil, apagar a conta; conferência do formulário
+    ContaContexto.jsx      a conta para as telas (useConta)
+    conta.test.js          testes da sessão e da conta, com um servidor de mentira
   sensor/                  o painel do sensor (página separada: sensor.html)
     pagina.jsx             entrada da página: fontes, estilos e o Painel
     Painel.jsx             a página: desenho do bueiro, nível, medida, simulação e ajustes
@@ -645,6 +679,8 @@ src/
     Menu.jsx               atalhos, tema, ajustes e a chave do modo vitrine
     useVitrine.js          modo vitrine: espera a falta de toque, toca as cenas e para ao primeiro toque
     EmConstrucao.jsx       telas das próximas etapas e a tela Sobre
+    Conta.jsx              Entrar, Criar conta e Perfil (avisos, localização de referência, sair, apagar a conta)
+    Privacidade.jsx        para que serve cada dado e como apagar a conta
   estilos/
     base.css               tokens dos dois temas e componentes (vidro, listas, botões)
     telas.css              estilos de cada tela
@@ -706,7 +742,6 @@ hospedagem estática sem configurar o servidor.
 | Rotas a pé ou de transporte | Fora do escopo: o grupo decidiu por rotas só de carro |
 | Reportar problema | Domínio de Ocorrência no backend |
 | Notificação dos avisos no celular | Alerta a partir de previsão no backend; notificações no aparelho |
-| Perfil e conta | Login (JWT) no backend |
 | Aviso por região vindo do servidor | Formato de `GET /previsoes/regioes` (hoje o app calcula com a mesma regra) |
 | Trecho de rua para sensores fora dos 136 pontos conhecidos | Rodar `npm run ruas` com a posição deles (os de `docs/sensores-capital.sql` já têm trecho) |
 | Mostrar as duas chances (antes e depois do sensor) também nos dados reais | O backend mandar `probabilidadeModelo` em `/previsoes`; o app já lê |
