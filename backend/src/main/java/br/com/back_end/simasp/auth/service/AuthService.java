@@ -3,6 +3,7 @@ package br.com.back_end.simasp.auth.service;
 import br.com.back_end.simasp.auth.dto.LoginRequest;
 import br.com.back_end.simasp.auth.dto.LoginResponse;
 import br.com.back_end.simasp.exception.CredenciaisInvalidasException;
+import br.com.back_end.simasp.security.LimiteDeTentativas;
 import br.com.back_end.simasp.security.TokenService;
 import br.com.back_end.simasp.usuario.entity.Usuario;
 import br.com.back_end.simasp.usuario.repository.UsuarioRepository;
@@ -25,24 +26,30 @@ public class AuthService {
     @Autowired
     private TokenService tokenService;
 
+    @Autowired
+    private LimiteDeTentativas limite;
+
     @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest request)
+    public LoginResponse login(LoginRequest request, String ip)
     {
         String emailFormatado = request.email().trim().toLowerCase(Locale.ROOT);
 
-        Usuario usuario = repository.findByEmailIgnoreCase(emailFormatado).orElseThrow(this::credenciaisInvalidas);
+        // Bloqueado por excesso de erros: 429 antes de olhar a senha (#19).
+        limite.verificar(emailFormatado, ip);
 
-        if(!Boolean.TRUE.equals(usuario.getAtivo()))
+        Usuario usuario = repository.findByEmailIgnoreCase(emailFormatado).orElse(null);
+
+        boolean valido = usuario != null
+                && Boolean.TRUE.equals(usuario.getAtivo())
+                && passwordEncoder.matches(request.senha(), usuario.getSenhaHash());
+
+        if(!valido)
         {
+            limite.registrarFalha(emailFormatado, ip);
             throw credenciaisInvalidas();
         }
 
-        boolean senhaCorreta = passwordEncoder.matches(request.senha(), usuario.getSenhaHash());
-
-        if(!senhaCorreta)
-        {
-            throw credenciaisInvalidas();
-        }
+        limite.registrarSucesso(emailFormatado);
 
         String token = tokenService.gerarToken(usuario);
 

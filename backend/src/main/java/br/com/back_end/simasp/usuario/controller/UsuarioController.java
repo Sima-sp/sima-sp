@@ -50,6 +50,14 @@ public class UsuarioController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Apaga a conta. Depois disso o token para de valer e o login falha (#19). */
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> excluirConta(@AuthenticationPrincipal Jwt jwt)
+    {
+        service.excluirConta(usuarioId(jwt));
+        return ResponseEntity.noContent().build();
+    }
+
     private static Long usuarioId(Jwt jwt)
     {
         return Long.valueOf(jwt.getClaimAsString("usuarioId"));

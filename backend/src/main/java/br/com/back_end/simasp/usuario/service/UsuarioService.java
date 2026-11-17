@@ -16,6 +16,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 @Service
@@ -29,6 +32,15 @@ public class UsuarioService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private Clock relogio;
+
+    /** Localização de referência com ~100 m de precisão (3 casas decimais): basta para o aviso e expõe menos (#19). */
+    public static BigDecimal arredondar(BigDecimal coordenada)
+    {
+        return coordenada == null ? null : coordenada.setScale(3, RoundingMode.HALF_UP);
+    }
 
     public Page<UsuarioResponse> buscarUsuariosProximos(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable paginacao)
     {
@@ -50,6 +62,9 @@ public class UsuarioService {
         usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
         usuario.setTipoUsuario(TipoUsuarioEnum.CIDADAO);
         usuario.setAtivo(true);
+        usuario.setLatitude(arredondar(request.latitude()));
+        usuario.setLongitude(arredondar(request.longitude()));
+        usuario.setAceiteTermos(LocalDateTime.now(relogio));
 
         Usuario usuarioSalvo = repository.save(usuario);
 
@@ -104,8 +119,8 @@ public class UsuarioService {
 
         if(request.latitude() != null)
         {
-            usuario.setLatitude(request.latitude());
-            usuario.setLongitude(request.longitude());
+            usuario.setLatitude(arredondar(request.latitude()));
+            usuario.setLongitude(arredondar(request.longitude()));
         }
 
         if(request.permissaoAlerta() != null)
@@ -145,6 +160,21 @@ public class UsuarioService {
     }
 
 
+
+    /** {@code DELETE /usuarios/me}: apaga a conta (#19). */
+    @Transactional
+    public void excluirConta(Long id)
+    {
+        Usuario usuario = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Usuário com este id não encontrado"));
+
+        // O administrador não se apaga por aqui: ficaria sem ninguém para cuidar dos sensores.
+        if(usuario.getTipoUsuario() == TipoUsuarioEnum.ADMIN)
+        {
+            throw new AlteracaoInvalidaException("A conta de administrador não pode ser excluída pelo app.");
+        }
+
+        repository.delete(usuario);
+    }
 
     public void verificarDuplicidade(String email, String telefone)
     {

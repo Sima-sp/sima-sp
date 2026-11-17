@@ -1,7 +1,9 @@
 package br.com.back_end.simasp.exception;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -34,6 +36,18 @@ public class GlobalExceptionHandler {
         problema.setProperty("codigo", "CREDENCIAIS_INVALIDAS");
 
         return problema;
+    }
+
+    @ExceptionHandler(TentativasExcedidasException.class)
+    public ResponseEntity<ProblemDetail> tratarTentativasExcedidas(TentativasExcedidasException exception)
+    {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage());
+        problema.setTitle("Muitas tentativas");
+        problema.setProperty("codigo", "TENTATIVAS_EXCEDIDAS");
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getSegundosParaTentar()))
+                .body(problema);
     }
 
     @ExceptionHandler(ChaveSensorInvalidaException.class)

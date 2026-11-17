@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Table (name = "TBL_USUARIO")
 @Entity
@@ -42,4 +43,8 @@ public class Usuario {
 
     @Column(name = "FL_ATIVO")
     private Boolean ativo = Boolean.TRUE;
+
+    /** Quando a pessoa aceitou o uso dos dados no cadastro (#19). */
+    @Column(name = "DT_ACEITE_TERMOS")
+    private LocalDateTime aceiteTermos;
 }
