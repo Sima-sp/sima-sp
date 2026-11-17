@@ -17,7 +17,10 @@ FROM eclipse-temurin:21-jre
 # Horário de São Paulo também no contêiner (#9); o backend já força o fuso, isto deixa os logs certos.
 ENV TZ=America/Sao_Paulo \
     SPRING_PROFILES_ACTIVE=prod
-RUN groupadd --system sima && useradd --system --gid sima --no-create-home sima
+RUN groupadd --system sima && useradd --system --gid sima --no-create-home sima \
+    && mkdir -p /dados/fotos && chown -R sima:sima /dados
+# Fotos dos relatos (#15): monte um volume aqui para não perder a cada nova versão.
+VOLUME /dados
 WORKDIR /app
 COPY --from=build /build/target/*.jar /app/simasp.jar
 USER sima
