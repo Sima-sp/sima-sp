@@ -13,6 +13,9 @@
 // - Os pedaços do mapa também não mudam: vale a cópia guardada; a quantidade tem limite.
 // - Qualquer erro aqui dentro cai no comportamento normal do navegador.
 //
+// Também é ele quem mostra a NOTIFICAÇÃO de alerta (o fim do arquivo): o backend manda o aviso
+// pelo serviço de push do navegador e ele chega aqui mesmo com o app fechado.
+//
 // Só é ligado no app publicado (ver src/main.jsx). No `npm run dev` ele não existe.
 
 const VERSAO = "v1";
@@ -132,3 +135,42 @@ async function guardarLista(urls) {
     }
   }
 }
+
+/* ───────────── Notificação de alerta (Web Push) ───────────── */
+
+// O que o backend manda (PushService.mensagem): { titulo, corpo, alertaId, sensorId, codigo }.
+// A inscrição do aparelho é feita em src/conta/push.js, depois de a pessoa ligar os avisos no Perfil.
+
+self.addEventListener("push", (evento) => {
+  let dados = {};
+  try {
+    dados = evento.data ? evento.data.json() : {};
+  } catch {
+    dados = { corpo: evento.data ? evento.data.text() : "" };
+  }
+  const titulo = dados.titulo || "Alerta de alagamento";
+  evento.waitUntil(self.registration.showNotification(titulo, {
+    body: dados.corpo || "Um bueiro perto de você entrou em alerta.",
+    icon: "./icone-192.png",
+    badge: "./icone-192.png",
+    // Um aviso por alerta: se o mesmo chegar duas vezes, o segundo substitui o primeiro.
+    tag: dados.alertaId ? `alerta-${dados.alertaId}` : "alerta",
+    data: { sensorId: dados.sensorId ?? null },
+  }));
+});
+
+// Tocar na notificação abre o app no bueiro do alerta (ou no mapa, se o aviso veio sem o sensor).
+self.addEventListener("notificationclick", (evento) => {
+  evento.notification.close();
+  const sensorId = evento.notification.data?.sensorId;
+  const destino = new URL(sensorId ? `./#/?ponto=${encodeURIComponent(sensorId)}` : "./#/alertas", self.registration.scope).href;
+  evento.waitUntil((async () => {
+    const janelas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const aberta = janelas.find((janela) => janela.url.startsWith(self.registration.scope));
+    if (aberta) {
+      await aberta.navigate(destino).catch(() => {});
+      return aberta.focus();
+    }
+    return self.clients.openWindow(destino);
+  })());
+});
