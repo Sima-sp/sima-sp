@@ -82,7 +82,7 @@ class AlertaIntegracaoTest {
                 {"latitude": %.6f, "longitude": %.6f, "vizinhanca": "Bancada", "dataInstalacao": "2026-11-01T10:00:00",
                  "codigo": "%s", "profundidadeCm": 60.0, "distanciaCheioCm": 20.0}
                 """, -23.4 - ThreadLocalRandom.current().nextDouble(0.4), -46.4 - ThreadLocalRandom.current().nextDouble(0.4), codigo);
-        HttpResponse<String> criado = enviar("POST", "/admin/sensores/cadastro-sensor", admin, json, null);
+        HttpResponse<String> criado = enviar("POST", "/admin/sensores", admin, json, null);
         assertThat(criado.statusCode()).as(criado.body()).isEqualTo(201);
         long id = Long.parseLong(campo(criado, "\"id\"\\s*:\\s*(\\d+)"));
         String chave = campo(enviar("POST", "/admin/sensores/" + id + "/chave", admin, null, null), "\"chave\"\\s*:\\s*\"([^\"]+)\"");

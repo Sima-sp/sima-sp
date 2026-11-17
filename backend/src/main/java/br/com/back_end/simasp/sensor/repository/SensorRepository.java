@@ -27,6 +27,8 @@ public interface SensorRepository extends JpaRepository<Sensor, Long> {
     /** Todos os sensores de uma vizinhança (pode haver vários no mesmo bairro). */
     List<Sensor> findByVizinhancaIgnoreCase(String vizinhanca);
 
+    Page<Sensor> findByStatus(StatusSensor status, Pageable pageable);
+
     /**
      * Sensores com um status, a até {@code distanciaMetros} de um ponto, paginados.
      *
@@ -51,16 +53,4 @@ public interface SensorRepository extends JpaRepository<Sensor, Long> {
                                            @Param("latitude") BigDecimal latitude,
                                            @Param("distanciaMetros") Integer distanciaMetros,
                                            Pageable pageable);
-
-    default Page<Sensor> sensoresAtivosProximosDistancia(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable pageable) {
-        return sensoresProximosPorStatus(StatusSensor.ATIVO.name(), longitude, latitude, distanciaMetros, pageable);
-    }
-
-    default Page<Sensor> sensoresManutencaoProximosDistancia(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable pageable) {
-        return sensoresProximosPorStatus(StatusSensor.MANUTENCAO.name(), longitude, latitude, distanciaMetros, pageable);
-    }
-
-    default Page<Sensor> sensoresInativosProximosDistancia(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable pageable) {
-        return sensoresProximosPorStatus(StatusSensor.INATIVO.name(), longitude, latitude, distanciaMetros, pageable);
-    }
 }
