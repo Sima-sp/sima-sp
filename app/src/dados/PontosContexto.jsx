@@ -4,7 +4,8 @@
 //   - sem VITE_API_URL  → demonstração (src/dados/demo.js), sempre identificada na tela, com um
 //                         "clima" que pode ser trocado na hora (valor.demo);
 //   - com VITE_API_URL  → GET /previsoes do backend, consultado a cada CONFIG.intervaloAtualizacaoMs,
-//                         e junto dele GET /alertas (os alertas ativos do sensor, src/dados/alertas.js).
+//                         e junto dele GET /alertas (os alertas ativos do sensor, src/dados/alertas.js)
+//                         e GET /ocorrencias (os relatos aprovados, src/relatos/relatos.js).
 //
 // Se o backend não responder, o app NÃO troca para a demonstração: mostrar dados inventados num
 // app de risco seria pior do que mostrar um aviso. Ele mantém a última resposta boa (guardada no
@@ -15,6 +16,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { CONFIG } from "../config";
 import { buscarAlertas, buscarPontos } from "./api";
 import { alertasDaDemo, juntarAlertas } from "./alertas";
+import { buscarRelatos, relatosValidos } from "../relatos/relatos";
 import { CLIMAS, criarEstadoDemo, emTransicao, gerarPontosDemo, trocarClima } from "./demo";
 
 const CHAVE_GUARDADO = "sima.ultimaResposta";
@@ -51,10 +53,10 @@ export function ProvedorPontos({ children }) {
 
   const [estado, setEstado] = useState(() => {
     if (!usaApi) {
-      return { pontos: gerarPontosDemo(), alertas: [], fonte: "demo", carregando: false, erro: null, atualizadoEm: new Date(), semPosicao: 0 };
+      return { pontos: gerarPontosDemo(), alertas: [], relatos: [], fonte: "demo", carregando: false, erro: null, atualizadoEm: new Date(), semPosicao: 0 };
     }
     const guardado = lerGuardado();
-    return { pontos: guardado?.pontos ?? [], alertas: [], fonte: "api", carregando: true, erro: null,
+    return { pontos: guardado?.pontos ?? [], alertas: [], relatos: [], fonte: "api", carregando: true, erro: null,
       atualizadoEm: guardado?.atualizadoEm ?? null, semPosicao: 0 };
   });
 
@@ -87,12 +89,15 @@ export function ProvedorPontos({ children }) {
     if (!usaApi || buscando.current) return;
     buscando.current = true;
     try {
-      // Os alertas vão junto, mas não derrubam o mapa: se só eles falharem (um backend antigo, sem
-      // a rota), ficam os que já estavam na tela.
-      const [{ pontos, semPosicao }, alertas] = await Promise.all([buscarPontos(), buscarAlertas().catch(() => null)]);
+      // Os alertas e os relatos vão junto, mas não derrubam o mapa: se só eles falharem (um
+      // backend antigo, sem a rota), ficam os que já estavam na tela.
+      const [{ pontos, semPosicao }, alertas, relatos] = await Promise.all([
+        buscarPontos(), buscarAlertas().catch(() => null), buscarRelatos().catch(() => null),
+      ]);
       const atualizadoEm = new Date();
       guardar(pontos, atualizadoEm);
-      setEstado((anterior) => ({ pontos, alertas: alertas ?? anterior.alertas, fonte: "api", carregando: false, erro: null, atualizadoEm, semPosicao }));
+      setEstado((anterior) => ({ pontos, alertas: alertas ?? anterior.alertas, relatos: relatos ?? anterior.relatos, fonte: "api",
+        carregando: false, erro: null, atualizadoEm, semPosicao }));
     } catch (erro) {
       setEstado((anterior) => ({ ...anterior, carregando: false, erro: erro.message || "Sem conexão com o servidor." }));
     } finally {
@@ -127,6 +132,8 @@ export function ProvedorPontos({ children }) {
     return {
       ...estado,
       pontos,
+      /** Relatos aprovados e ainda válidos. Na demonstração não há (dependem do servidor). */
+      relatos: usaApi ? relatosValidos(estado.relatos, agora) : [],
       /** Alertas ativos do sensor (medição), do mais antigo para o mais novo. */
       alertas: [...alertas].sort((a, b) => (a.desde?.getTime() ?? 0) - (b.desde?.getTime() ?? 0)),
       agora,
@@ -144,7 +151,7 @@ export function ProvedorPontos({ children }) {
 
 /**
  * Situação dos bueiros.
- * @returns {{ pontos, alertas, fonte: "demo"|"api", carregando, erro, atualizadoEm, semPosicao, agora, simulacao, atualizar, porId, demo }}
+ * @returns {{ pontos, alertas, relatos, fonte: "demo"|"api", carregando, erro, atualizadoEm, semPosicao, agora, simulacao, atualizar, porId, demo }}
  */
 export function usePontos() {
   const valor = useContext(Contexto);
