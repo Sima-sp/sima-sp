@@ -62,6 +62,21 @@ test("busca de endereço: resposta 503 também tenta de novo antes de desistir",
   assert.equal(pedidos.length, 2);
 });
 
+test("busca de endereço: resposta 400 não tenta de novo (a consulta daria o mesmo erro)", async () => {
+  const pedidos = servicoDeMentira([respostaJson({}, 400)]);
+  await assert.rejects(
+    buscarEnderecos("rua alcantara", { esperaMs: 1 }),
+    (erro) => erro instanceof ErroRota && erro.tipo === "servico" && erro.status === 400,
+  );
+  assert.equal(pedidos.length, 1);
+});
+
+test("busca de endereço: resposta 429 tenta de novo", async () => {
+  const pedidos = servicoDeMentira([respostaJson({}, 429), respostaJson(ETEC)]);
+  assert.equal((await buscarEnderecos("etec", { esperaMs: 1 })).length, 1);
+  assert.equal(pedidos.length, 2);
+});
+
 test("busca de endereço: resposta vazia não é erro e não repete o pedido", async () => {
   const pedidos = servicoDeMentira([respostaJson({ features: [] })]);
   assert.deepEqual(await buscarEnderecos("rua que nao existe", { esperaMs: 1 }), []);
