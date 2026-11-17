@@ -219,6 +219,12 @@ public class SecurityConfig {
                                 "/alertas/**"
                         ).authenticated()
 
+                        // Chave VAPID pública para o app se inscrever no push (#14).
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/push/chave-publica"
+                        ).permitAll()
+
                         // Relatos (#15): o mapa e as fotos aprovadas são públicos;
                         // enviar exige login. A análise fica em /admin/**.
                         .requestMatchers(

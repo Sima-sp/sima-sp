@@ -4,12 +4,8 @@ import br.com.back_end.simasp.usuario.dto.AtualizarUsuarioAdminRequest;
 import br.com.back_end.simasp.usuario.dto.UsuarioResponse;
 import br.com.back_end.simasp.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/admin/usuarios")
@@ -21,13 +17,8 @@ public class UsuarioAdminController {
         this.service = service;
     }
 
-    /** Usuários ativos a até {@code raio} metros de um ponto (padrão 5 km). */
-    @GetMapping
-    public ResponseEntity<Page<UsuarioResponse>> buscarUsuariosProximos(@RequestParam BigDecimal latitude, @RequestParam BigDecimal longitude,
-                                                                        @RequestParam(defaultValue = "5000") Integer raio, Pageable pageable)
-    {
-        return ResponseEntity.ok(service.buscarUsuariosProximos(longitude, latitude, raio, pageable));
-    }
+    // A busca de usuários por proximidade (e-mail, telefone e localização) saiu da API em #14:
+    // agora ela é usada só por dentro, para escolher quem recebe o aviso.
 
     /** Ativar ou desativar a conta: {@code { "ativo": false }}. */
     @PatchMapping("/{email}")
