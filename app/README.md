@@ -650,6 +650,21 @@ A pessoa avisa de um problema; o administrador analisa; o aprovado aparece no ma
 - **Demonstração**: a tela diz que relatar depende do servidor. Não há envio de mentira nem
   relatos no mapa.
 
+### Administração
+
+Tela `#/admin`, que só aparece para quem entrou com a conta de administrador (há um atalho no
+Perfil). É o mínimo para uma apresentação, sem editar o banco na mão:
+
+| Parte | O que faz | Rota do backend |
+|---|---|---|
+| Relatos em análise | Foto, tipo, descrição, o bueiro mais perto; aprovar ou recusar com motivo | `GET /admin/ocorrencias?situacao=PENDENTE`, `PATCH /admin/ocorrencias/{id}` |
+| Alertas ativos | Encerrar à mão | `PATCH /admin/alertas/{id}/resolver` |
+| Sensores | Ativo, manutenção ou inativo | `PATCH /admin/sensores/{id}` |
+| Chuva de teste | Liga um cenário por 30 minutos, ou desliga | `/admin/demonstracao` |
+
+Cadastrar sensor e gerar a chave dele continuam no Swagger do backend. Esconder a tela de quem
+não é admin é conforto: quem protege é o backend, que responde 403 nas rotas `/admin/**`.
+
 ### O que acontece quando o backend não responde
 
 O app **não** troca para os dados de demonstração: num app de risco, mostrar dados inventados
@@ -692,6 +707,8 @@ src/
     ContaContexto.jsx      a conta para as telas (useConta)
     push.js                notificação no celular: permissão, inscrição, situação do aparelho e os textos (e o teste)
     conta.test.js          testes da sessão e da conta, com um servidor de mentira
+  admin/
+    admin.js               o que o administrador faz pelo app: fila de relatos, alertas, sensores e chuva de teste (e o teste)
   relatos/
     relatos.js             relatos do cidadão: tipos, conferência, redução da foto, envio e leitura (e o teste)
     SeletorDePosicao.jsx   mapa pequeno com mira para marcar o lugar do problema
@@ -738,6 +755,7 @@ src/
     useVitrine.js          modo vitrine: espera a falta de toque, toca as cenas e para ao primeiro toque
     Sobre.jsx              como ler o mapa
     Reportar.jsx           Reportar problema e Meus relatos
+    Admin.jsx              área do administrador
     Conta.jsx              Entrar, Criar conta e Perfil (avisos, localização de referência, sair, apagar a conta)
     Privacidade.jsx        para que serve cada dado e como apagar a conta
   estilos/
