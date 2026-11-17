@@ -530,21 +530,34 @@ ele precisa de CORS liberado para a origem do app, ou de servir a pasta `dist/` 
 
 ### O contrato com o backend
 
-Formato de cada item de `/previsoes`, conferido em 06/10/2026 (ver `normalizarPrevisao` em
-`src/dados/modelo.js`):
+Formato de cada item de `/previsoes`, conferido em 16/11/2026 com o `PrevisaoResponse` do backend
+(ver `normalizarPrevisao` em `src/dados/modelo.js`):
 
 `sensorId`, `latitude`, `longitude`, `vizinhanca`, `status`, `probabilidadeAlagamento`,
 `nivelRisco`, `nivelRiscoModelo`, `janelaHoras`, `geradaEm`, `validaAte`, `horaReferencia`,
 `medicaoTransbordando`, `ajusteSensorAplicado`, `semLeituraSensor`, `motivosAjuste`,
 `chuvaRecente3hMm`, `chuvaPrevista3hMm`, `origem`, `modeloVersao`, `simulada`.
 
-O que **falta no backend** para o app mostrar tudo:
+E, do sensor e da última leitura dele:
 
-| Campo (nome sugerido) | Para quê | Sem ele |
-|---|---|---|
-| `nivelAgua`, `dataLeitura` | O lado "medido" do bueiro | O app mostra "Sem leitura" em todos os pontos |
-| `statusSensor` (`ATIVO`, `INATIVO`, `MANUTENCAO`) | Dizer por que não há leitura | O app não distingue sensor inativo de sensor em manutenção |
-| Fuso nas datas (ex.: `2026-10-06T13:18:18-03:00`) | Aparelhos fora do horário de São Paulo | O app assume São Paulo quando a data vem sem fuso |
+| Campo | No app |
+|---|---|
+| `nivelAgua` (%) | O lado "medido": a tampa que enche e o número do cartão |
+| `distanciaCm` | Tela do bueiro, em "Sobre este ponto": o que o sensor mede de verdade |
+| `dataLeitura` | "leitura há 3 min". **Com mais de 30 minutos, o app não mostra o número**: diz "Sem leitura recente" e quando foi a última |
+| `statusSensor` (`ATIVO`, `INATIVO`, `MANUTENCAO`) | Inativo ou em manutenção: o cartão e a tela dizem o motivo, sem número |
+| `codigo` (ex.: `bueiro_01`) | O nome do ponto. Sem ele, o app monta um pela sigla do bairro e o id |
+
+As datas vêm com fuso (`2026-11-16T14:20:00-03:00`); sem fuso, o app assume São Paulo. Um backend
+antigo, sem esses cinco campos, continua funcionando: o app mostra "Sem leitura".
+
+**Sensor de bancada.** O protótipo com o balde chama-se `bueiro_01` no backend (troque em
+`VITE_SENSOR_BANCADA`). Quando ele vem na resposta, a busca o mostra no topo, antes de digitar
+qualquer coisa; "bueiro 01", "bueiro_01" e "bueiro01" também o encontram.
+
+O que ainda **não vem**: a chance antes do sensor. Se o backend passar a mandar
+`probabilidadeModelo`, a tela do bueiro mostra "só pela chuva e pelo lugar seria X; a leitura do
+sensor levou a Y", como já faz na demonstração. Hoje ela diz só a mudança de nível.
 
 A rota já responde sem login. A vizinhança dos sensores de exemplo é "Local de teste 0X"; rodando
 o `docs/demo-sensores.sql` do backend ela vira `"R. Chico Pontes — Vila Maria / Vila Guilherme"`
@@ -552,7 +565,7 @@ e o app passa a mostrar endereço e bairro (e as previsões reagem à chuva, por
 ficam sobre pontos que o modelo conhece).
 
 Para ver o app reagindo sem chuva de verdade, use o modo de demonstração do backend
-(`POST /admin/demonstracao/iniciar`, ver `backend-core/docs/previsao-ia.md`). As previsões vêm com
+(`POST /admin/demonstracao/iniciar`, ver `backend/docs/previsao-ia.md`). As previsões vêm com
 `simulada: true` e o app mostra o aviso **"Simulação · chuva de teste ligada"**.
 
 ### O que acontece quando o backend não responde
@@ -695,11 +708,9 @@ hospedagem estática sem configurar o servidor.
 | Notificação dos avisos no celular | Alerta a partir de previsão no backend; notificações no aparelho |
 | Perfil e conta | Login (JWT) no backend |
 | Aviso por região vindo do servidor | Formato de `GET /previsoes/regioes` (hoje o app calcula com a mesma regra) |
-| Trecho de rua para sensores fora dos pontos conhecidos | Rodar `npm run ruas` com a posição dos sensores |
-| Mostrar o quanto o sensor pesou também nos dados reais | A conta já está no serviço de IA; falta o backend mandar a chance antes do sensor e o fator |
+| Trecho de rua para sensores fora dos 136 pontos conhecidos | Rodar `npm run ruas` com a posição deles (os de `docs/sensores-capital.sql` já têm trecho) |
+| Mostrar as duas chances (antes e depois do sensor) também nos dados reais | O backend mandar `probabilidadeModelo` em `/previsoes`; o app já lê |
 | A IA aprender o peso do sensor | Meses de leituras de verdade, com registro de quando alagou |
-| Leitura do sensor com dados reais | `nivelAgua`, `dataLeitura` e `statusSensor` em `/previsoes` |
-| Protótipo do sensor no mapa (hoje só na tela "Sensor ao vivo") | O ESP32 enviar a leitura ao backend, e o backend devolvê-la em `/previsoes` |
 | Gráfico de 12 h com dados reais | Histórico de leituras por sensor (hoje só na demonstração) |
 | App nas lojas (APK) | Capacitor |
 

@@ -21,7 +21,7 @@ import { usePreferencias } from "../preferencias/PreferenciasContexto";
 import { useRotas } from "../rotas/RotaContexto";
 import { REGRAS, resumoDaRota, textoDistancia, textoDuracao, viasPrincipais } from "../rotas/planejar";
 import { corNivel } from "../dados/niveis";
-import { fatosDoCartao, horaCurta, linhaSituacao, nivelVisivel } from "../dados/modelo";
+import { fatosDoCartao, horaCurta, linhaSituacao, nivelVisivel, tituloDoPonto } from "../dados/modelo";
 import { avisosPorRegiao, resumoDosAvisos } from "../dados/regioes";
 import { useApresentacao } from "../componentes/PrimeiroUso";
 import { useTelaLarga } from "../componentes/ganchos";
@@ -343,7 +343,7 @@ function CartaoBueiro({ refCartao, ponto, aberto, agora, aoFechar, aoVerBueiro, 
       <span className="grabber" aria-hidden="true" />
       <div className="ms-head">
         <div style={{ minWidth: 0 }}>
-          <h2 className="ms-title">Bueiro {ponto.codigo}</h2>
+          <h2 className="ms-title">{tituloDoPonto(ponto)}</h2>
           <p className="ms-addr">{ponto.endereco ? `${ponto.endereco} · ${ponto.bairro}` : ponto.bairro}</p>
           <p className="ms-stat" style={{ color: nivel ? corNivel(nivel) : "var(--bone-300)" }}>{linhaSituacao(ponto, agora)}</p>
         </div>

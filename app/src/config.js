@@ -18,6 +18,12 @@ export const CONFIG = {
   /** Quanto esperar pela resposta do backend antes de desistir. */
   tempoLimiteMs: 6000,
 
+  /**
+   * Código do sensor de bancada (o protótipo com o balde). Quando ele existe na resposta do
+   * backend, a busca o oferece logo no topo, para achá-lo rápido numa apresentação.
+   */
+  sensorDeBancada: env.VITE_SENSOR_BANCADA || "bueiro_01",
+
   /** Janela da previsão do modelo de IA, em horas. Usada quando a resposta não informa. */
   janelaHorasPadrao: 3,
 
