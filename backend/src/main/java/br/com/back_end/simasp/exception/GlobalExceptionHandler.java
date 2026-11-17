@@ -10,6 +10,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -48,6 +49,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getSegundosParaTentar()))
                 .body(problema);
+    }
+
+    @ExceptionHandler(FotoInvalidaException.class)
+    public ProblemDetail tratarFotoInvalida(FotoInvalidaException exception)
+    {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+        problema.setTitle("Foto inválida");
+        problema.setProperty("codigo", "FOTO_INVALIDA");
+
+        return problema;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail tratarArquivoGrande(MaxUploadSizeExceededException exception)
+    {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE,
+                "O arquivo passa do tamanho máximo (5 MB).");
+        problema.setTitle("Arquivo grande demais");
+        problema.setProperty("codigo", "ARQUIVO_GRANDE");
+
+        return problema;
     }
 
     @ExceptionHandler(ChaveSensorInvalidaException.class)

@@ -48,6 +48,8 @@ de IA fica na pasta [`infra/`](../infra) (#60).
 | `IA_URL` | não | `http://localhost:5000` | Endereço do serviço de IA |
 | `IA_DEMONSTRACAO` | não | `false` | Permite o modo de demonstração (chuva simulada) |
 | `ADMIN_EMAIL`, `ADMIN_SENHA` | não | vazio | Primeiro administrador, criado ao subir se ainda não existir |
+| `FOTOS_DIR` | não | `./dados/fotos` (`/dados/fotos` no contêiner) | Pasta das fotos dos relatos; em produção, um volume |
+| `OCORRENCIA_VALIDADE` | não | `PT24H` | Quanto tempo um relato aprovado fica no mapa |
 | `SPRING_PROFILES_ACTIVE` | não | `dev` (`prod` na imagem) | `dev` mostra o SQL no log |
 
 ## Pontos da capital como sensores
@@ -67,9 +69,9 @@ o Swagger serve de tela do admin (cadastrar sensor, gerar a chave, resolver aler
 |---|---|
 | `POST /auth/login`, `POST /usuarios` (criar conta) | Qualquer um |
 | `POST /leituras` | O servidor do sensor, com a chave do sensor em `X-Sensor-Chave` |
-| `GET /previsoes/**`, `GET /sensores/**`, `GET /alertas` | Qualquer um (o mapa do app é público) |
+| `GET /previsoes/**`, `GET /sensores/**`, `GET /alertas`, `GET /ocorrencias` | Qualquer um (o mapa do app é público) |
 | `GET /swagger-ui.html`, `GET /v3/api-docs` | Qualquer um |
-| `GET`, `PATCH` e `DELETE /usuarios/me`, `PUT /usuarios/me/senha` | Quem entrou (`Authorization: Bearer <token>`) |
+| `GET`, `PATCH` e `DELETE /usuarios/me`, `PUT /usuarios/me/senha`, `POST /ocorrencias` | Quem entrou (`Authorization: Bearer <token>`) |
 | `/admin/**`, `POST /previsoes/**` | Perfil ADMIN |
 | Qualquer outra | Ninguém (403) |
 
@@ -104,6 +106,25 @@ Os nomes seguem uma regra só (#20): substantivo no caminho e o verbo HTTP dizen
 | Usuários perto de um ponto | `GET /admin/usuarios?latitude=&longitude=&raio=` |
 | Ativar ou desativar conta | `PATCH /admin/usuarios/{email}` com `{ "ativo": false }` |
 | Alertas | `GET /alertas?status=ATIVO`; `GET /admin/alertas`; `PATCH /admin/alertas/{id}/resolver` |
+| Relatar um problema (multipart) | `POST /ocorrencias` |
+| Relatos no mapa; foto | `GET /ocorrencias`; `GET /ocorrencias/{id}/foto` |
+| Meus relatos | `GET /usuarios/me/ocorrencias` |
+| Fila do admin; aprovar ou recusar; foto | `GET /admin/ocorrencias?situacao=PENDENTE`; `PATCH /admin/ocorrencias/{id}`; `GET /admin/ocorrencias/{id}/foto` |
+
+## Relatos do cidadão (#15)
+
+- `POST /ocorrencias` (logado, `multipart/form-data`): `tipo` (`BUEIRO_ENTUPIDO`, `ALAGAMENTO`,
+  `LIXO_NA_VIA`, `OUTRO`), `descricao` (até 500), `latitude`, `longitude` e, opcional, `foto`.
+- Todo relato nasce `PENDENTE`. O admin aprova (`{"situacao":"APROVADA"}`) ou recusa com motivo
+  (`{"situacao":"RECUSADA","motivo":"..."}`). Na banca, a análise é feita pelo Swagger.
+- O mapa (`GET /ocorrencias`) mostra só os aprovados há menos de `OCORRENCIA_VALIDADE` (padrão 24 h),
+  sem nada de quem relatou. O autor acompanha os dele em `GET /usuarios/me/ocorrencias`.
+- Foto: só JPEG ou PNG de verdade (conferido pelos primeiros bytes), até 5 MB (`413` acima).
+  É aberta e gravada de novo, o que apaga o EXIF (pode ter a posição de quem tirou), e reduzida
+  para no máximo 1600 px. Fica em `FOTOS_DIR` (`/dados/fotos` no contêiner: monte um volume).
+- Limite: 5 relatos por conta por hora (`429`).
+- Conta excluída: os relatos ficam, sem autor.
+
 
 ## Leituras do sensor
 
