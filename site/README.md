@@ -117,6 +117,9 @@ A página e o app precisam dizer a mesma coisa. Onde cada afirmação vive:
 - **O sensor** (`Sensor.jsx`, `LIMITES_CM`): o protótipo mede a distância até a água (só água, não
   mede lixo); os limites de 60, 45 e 30 cm são os do painel do sensor do app
   (`app/src/sensor/nivel.js`). Quando a calibração na bancada sair (#55), troque os números ali.
+  Hoje o crítico do sensor é uma distância (30 cm) e o da IA é o bueiro cheio, como no app.
+  Quando #41 e #55 levarem os limites para % do bueiro (com crítico = cheio), revise as seções
+  do sensor e da IA juntas.
 - **Quem fez** (`lib/equipe.js`): a lista da equipe só aparece quando estiver preenchida. O vídeo e
   o texto do TCC aparecem quando os endereços forem definidos (ver "Configuração").
 - **O que é de verdade** (`Projeto.jsx`): os lugares, a IA, as ruas e as rotas e o protótipo são

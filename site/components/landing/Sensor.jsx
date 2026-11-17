@@ -8,6 +8,9 @@ import { IconeSeta } from "./Icones";
  * (app/src/sensor/nivel.js, LIMITES_PADRAO). O sensor mede de 20 cm a 2000 cm, e por isso o
  * crítico começa acima de 20. Quando a calibração na bancada sair (#55), troque só aqui: o
  * desenho e o texto da seção usam estes números.
+ * ATENÇÃO: aqui o crítico é uma distância (30 cm); na seção da IA (Ia.jsx), crítico é o bueiro
+ * cheio. O painel do app faz o mesmo hoje. Quando #41 e #55 levarem os limites para % do bueiro
+ * (com crítico = cheio), revise as duas seções juntas.
  */
 const LIMITES_CM = { critico: 30, alerta: 45, atencao: 60 };
 
