@@ -29,6 +29,7 @@ Recebe os sensores, guarda leituras e previsões e serve o app e o site.
 | Rota | Quem |
 |---|---|
 | `POST /auth/login`, `POST /usuarios/cadastro` | Qualquer um |
+| `POST /leituras` | O servidor do sensor, com a chave do sensor em `X-Sensor-Chave` |
 | `GET /previsoes/**`, `GET /sensores/**` | Qualquer um (o mapa do app é público) |
 | `/usuarios/me/**`, `/leituras/**`, `/alertas/**` | Quem entrou (`Authorization: Bearer <token>`) |
 | `/admin/**`, `POST /previsoes/**` | Perfil ADMIN |
@@ -36,6 +37,33 @@ Recebe os sensores, guarda leituras e previsões e serve o app e o site.
 
 O login devolve `{ token, tipo: "Bearer", expiraEmSegundos }`; o token traz `sub` (e-mail),
 `usuarioId` e `perfil`. Os dados do usuário vêm de `GET /usuarios/me`. Sair = o app apaga o token.
+
+## Leituras do sensor
+
+O servidor do sensor (pasta [`iot/`](../iot)) manda cada leitura assim:
+
+```
+POST /leituras
+X-Sensor-Chave: <chave do sensor>
+{ "codigo": "bueiro_01", "distanciaCm": 32.4, "medidaEm": "2026-11-19T14:20:00-03:00" }
+```
+
+`medidaEm` é opcional (ausente = agora). Respostas: 201 gravou; 401 chave ausente ou errada;
+404 código desconhecido; 409 sensor inativo ou em manutenção; 400 distância fora de 0–2000 cm
+ou campo faltando.
+
+Para ligar um sensor, um ADMIN:
+
+1. cadastra o código, a profundidade (sensor até o fundo) e a distância de cheio (sensor até a
+   água com o bueiro cheio) em `PATCH /admin/sensores/modificar-sensor/{id}/bancada` (ou já no
+   cadastro do sensor);
+2. gera a chave em `POST /admin/sensores/{id}/chave`. Ela aparece **só nessa resposta** (o banco
+   guarda o hash); chamar de novo troca a chave.
+
+O backend calcula o nível: `(profundidade − distância) ÷ (profundidade − cheio) × 100`, entre 0
+e 100 %. 100 % é "transbordando agora". O nível medido (BAIXO a CRITICO) sai dos limites em %
+de `sensor.nivel.*` no `application.properties` (hoje 50, 80 e 100). Sem profundidade, a leitura
+grava só a distância.
 
 ## Testes
 

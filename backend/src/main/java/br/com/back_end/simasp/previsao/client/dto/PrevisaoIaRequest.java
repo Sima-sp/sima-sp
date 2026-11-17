@@ -10,8 +10,8 @@ import java.util.List;
  *
  * <p>O backend manda só o que conhece: onde o sensor está e o que ele mediu. A chuva é
  * responsabilidade do serviço de IA, que usa a mesma fonte e o mesmo código do treino
- * (ver docs/recomendacoes.md, R8, no repositório do ml-service). {@code chuvaMm} é legado e
- * só é preenchido quando existe leitura com esse campo.</p>
+ * (ver ia/docs/recomendacoes.md, R8). O sensor mede só a água: lixo e {@code chuvaMm} saíram do
+ * pedido (ADR 0006 da IA).</p>
  *
  * <p>{@code chuvaHoraria} é a exceção: fica nula sempre, menos no modo de demonstração, quando
  * leva o cenário de chuva simulada (72 valores horários, o último é a hora atual). Campos nulos
@@ -24,8 +24,6 @@ public record PrevisaoIaRequest(
         double longitude,
         OffsetDateTime timestamp,
         Double nivelAgua,
-        Double porcentagemLixo,
-        Double chuvaMm,
         List<Double> chuvaHoraria
 ) {
 }

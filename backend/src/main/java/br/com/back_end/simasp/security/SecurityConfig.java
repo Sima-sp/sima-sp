@@ -183,6 +183,13 @@ public class SecurityConfig {
                                 "/usuarios/me/**"
                         ).authenticated()
 
+                        // Leitura do servidor do sensor: sem login, conferida pela
+                        // chave do sensor (X-Sensor-Chave) no LeituraService (#10).
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/leituras"
+                        ).permitAll()
+
                         .requestMatchers(
                                 "/leituras/**"
                         ).authenticated()
