@@ -207,7 +207,12 @@ function EscolherLugar({ campo, aviso, localizando, aoEscolher, aoUsarPosicao, a
 
       <div aria-live="polite">
         {busca.fase === "procurando" && busca.lugares.length === 0 ? <p className="small bs-vazio">Procurando endereços…</p> : null}
-        {busca.fase === "erro" ? <p className="small bs-vazio">A busca de endereço não respondeu. Dá para escolher um dos lugares abaixo.</p> : null}
+        {busca.fase === "erro" ? (
+          <div className="bs-vazio">
+            <p className="small">A busca de endereço não respondeu. Tente de novo, ou escolha um dos lugares abaixo.</p>
+            <button type="button" className="btn btn-iron bs-tentar" onClick={busca.tentarDeNovo}>Tentar de novo</button>
+          </div>
+        ) : null}
         {busca.fase === "pronta" && busca.lugares.length === 0 && conhecidos.length === 0
           ? <p className="small bs-vazio">Nenhum endereço encontrado para “{termo}”. Tente o nome da rua com o bairro.</p> : null}
         {busca.lugares.length ? (

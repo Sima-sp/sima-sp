@@ -140,7 +140,7 @@ Serviços usados, os dois abertos, sem chave e com dados do OpenStreetMap:
 | Para quê | Serviço | Observação |
 |---|---|---|
 | Traçar a rota | [Valhalla](https://valhalla.github.io/valhalla/), no servidor público da FOSSGIS | Uso justo: um pedido por segundo. Aceita no máximo 100 vértices de áreas a evitar por pedido (cerca de 20 bueiros), medido em 06/10/2026. Sem garantia de disponibilidade. |
-| Buscar endereço | [Photon](https://photon.komoot.io/), da komoot | Limitado à Grande São Paulo. Se estiver fora do ar, os lugares conhecidos continuam funcionando. |
+| Buscar endereço | [Photon](https://photon.komoot.io/), da komoot | Limitado à Grande São Paulo. Se não responder, o app tenta de novo uma vez sozinho; se falhar outra vez, a busca diz que o serviço não respondeu (não "Nada encontrado") e oferece "Tentar de novo". Os lugares conhecidos, como a Etec, continuam funcionando. |
 
 Para trocar de servidor: `VITE_ROTAS_URL` e `VITE_ENDERECOS_URL` no `.env.local`. Só a partida e o
 destino da rota (e o texto digitado na busca) são enviados a esses serviços. Para um app de
@@ -598,7 +598,8 @@ src/
   rotas/
     planejar.js            a regra: caminho mais rápido, bueiros no caminho, desvio e os textos
     geometria.js           contas de distância, traçado compactado e área a evitar
-    servico.js             conversa com o serviço de rotas (Valhalla) e a busca de endereço (Photon)
+    servico.js             conversa com o serviço de rotas (Valhalla) e a busca de endereço (Photon, com uma nova tentativa)
+    servico.test.js        testes da busca de endereço (nova tentativa e erro), sem internet
     lugares.js             lugares conhecidos oferecidos como atalho
     RotaContexto.jsx       partida, chegada e resultado; refaz a rota quando o risco muda; guarda a viagem em curso (useRotas)
     useEnderecos.js        busca de endereço enquanto a pessoa digita
@@ -625,6 +626,7 @@ src/
     Bueiro.jsx             detalhe: medido × previsto
     Bairros.jsx            situação por bairro
     Busca.jsx              busca do mapa: lugares para ir (rota), bueiros e bairros
+    avisoDaBusca.js        qual aviso a busca mostra: "Nada encontrado" ou "não respondeu" (e o teste)
     Avisos.jsx             avisos por região
     ComoFunciona.jsx       como a IA funciona, com o simulador
     Menu.jsx               atalhos, tema, ajustes e a chave do modo vitrine

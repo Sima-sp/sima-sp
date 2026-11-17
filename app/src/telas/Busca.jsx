@@ -16,6 +16,7 @@ import { compararPorGravidade, linhaSituacao, nivelVisivel } from "../dados/mode
 import { useRotas } from "../rotas/RotaContexto";
 import { LUGARES } from "../rotas/lugares";
 import { useEnderecos } from "../rotas/useEnderecos";
+import { avisoDaBusca } from "./avisoDaBusca";
 import { Tampa } from "../componentes/Tampa";
 import { BotaoVoltar, Tela } from "../componentes/Tela";
 import { IconeBusca, IconeFechar, IconePino, IconeRota, IconeSeta } from "../componentes/Icones";
@@ -72,8 +73,14 @@ export default function Busca() {
 
   const lugares = [...lugaresConhecidos, ...enderecos.lugares];
   const procurando = enderecos.fase === "procurando" && enderecos.lugares.length === 0;
-  const nadaAchado = termo && lugares.length === 0 && bueirosAchados.length === 0 && bairrosAchados.length === 0
-    && (enderecos.fase === "pronta" || enderecos.fase === "erro" || termo.length < 3);
+  const aviso = avisoDaBusca({
+    termo,
+    fase: enderecos.fase,
+    achados: lugares.length + bueirosAchados.length + bairrosAchados.length,
+  });
+  const botaoTentarDeNovo = (
+    <button type="button" className="btn btn-iron bs-tentar" onClick={enderecos.tentarDeNovo}>Tentar de novo</button>
+  );
 
   const linhaLugar = (lugar) => (
     <button key={lugar.id} type="button" className="row row-2" onClick={() => irPara(lugar)}
@@ -110,8 +117,14 @@ export default function Busca() {
       </div>
 
       <div aria-live="polite">
-        {nadaAchado ? (
+        {aviso === "nada" ? (
           <p className="small bs-vazio">Nada encontrado para “{texto.trim()}”. Tente o nome da rua com o bairro, ou o código do bueiro.</p>
+        ) : null}
+        {aviso === "erro" ? (
+          <div className="bs-vazio">
+            <p className="small">A busca de endereços não respondeu. Tente de novo.</p>
+            {botaoTentarDeNovo}
+          </div>
         ) : null}
 
         {lugares.length || procurando ? (
@@ -120,9 +133,6 @@ export default function Busca() {
             {lugares.length ? <div className="grp">{lugares.map(linhaLugar)}</div> : null}
             {procurando ? <p className="small bs-vazio">Procurando endereços…</p> : null}
           </>
-        ) : null}
-        {enderecos.fase === "erro" && !nadaAchado ? (
-          <p className="micro bs-nota">A busca de endereço não respondeu; aparecem só os lugares conhecidos e os bueiros.</p>
         ) : null}
 
         {bueirosAchados.length ? (
@@ -145,6 +155,13 @@ export default function Busca() {
               ))}
             </div>
           </>
+        ) : null}
+
+        {aviso === "erro-com-resultados" ? (
+          <div className="bs-nota">
+            <p className="micro">A busca de endereços não respondeu; aparecem só os lugares conhecidos, os bueiros e os bairros.</p>
+            {botaoTentarDeNovo}
+          </div>
         ) : null}
       </div>
 

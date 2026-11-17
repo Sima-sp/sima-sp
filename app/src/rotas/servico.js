@@ -118,18 +118,34 @@ function descreverLugar(p) {
   return { nome, detalhe: [...new Set(partes.filter(Boolean))].filter((parte) => parte !== nome).join(" · ") };
 }
 
-/**
- * Procura endereços e lugares dentro da Grande São Paulo.
- * @returns {Promise<Array<{ id: string, nome: string, detalhe: string, lon: number, lat: number }>>}
- */
-export async function buscarEnderecos(texto, { sinal } = {}) {
+/** Espera `ms` milissegundos; cancela junto com o sinal. */
+function pausa(ms, sinal) {
+  return new Promise((resolver, rejeitar) => {
+    if (sinal?.aborted) {
+      rejeitar(sinal.reason ?? new DOMException("Pedido cancelado", "AbortError"));
+      return;
+    }
+    const relogio = setTimeout(resolver, ms);
+    sinal?.addEventListener("abort", () => {
+      clearTimeout(relogio);
+      rejeitar(sinal.reason ?? new DOMException("Pedido cancelado", "AbortError"));
+    }, { once: true });
+  });
+}
+
+/** Um pedido à busca de endereço, sem nova tentativa. */
+async function pedirEnderecos(texto, sinal) {
   const [[oeste, sul], [leste, norte]] = CONFIG.mapa.limites;
   const [lonCentro, latCentro] = CONFIG.mapa.centro;
   const consulta = new URLSearchParams({ q: texto, limit: "7", bbox: `${oeste},${sul},${leste},${norte}`, lat: String(latCentro), lon: String(lonCentro) });
-  const limite = comTempoLimite(sinal, CONFIG.rotas.tempoLimiteMs);
+  const limite = comTempoLimite(sinal, CONFIG.rotas.tempoLimiteEnderecoMs);
   try {
     const resposta = await fetch(`${CONFIG.rotas.urlPhoton}/api/?${consulta}`, { signal: limite.sinal });
-    if (!resposta.ok) throw new ErroRota("servico", `Resposta ${resposta.status} da busca de endereço.`);
+    if (!resposta.ok) {
+      const erro = new ErroRota("servico", `Resposta ${resposta.status} da busca de endereço.`);
+      erro.status = resposta.status;
+      throw erro;
+    }
     const dados = await resposta.json();
     const vistos = new Set();
     const lugares = [];
@@ -148,5 +164,39 @@ export async function buscarEnderecos(texto, { sinal } = {}) {
     throw new ErroRota("rede", "A busca de endereço não respondeu.");
   } finally {
     limite.limpar();
+  }
+}
+
+/**
+ * Vale pedir de novo? Sem status = rede ou tempo esgotado; 429 e 5xx = falha passageira do
+ * servidor. Outro 4xx (consulta inválida, por exemplo) daria o mesmo erro na segunda vez.
+ */
+function valeRepetir(erro) {
+  return erro.status === undefined || erro.status === 429 || erro.status >= 500;
+}
+
+/**
+ * Procura endereços e lugares dentro da Grande São Paulo.
+ *
+ * O servidor público falha de vez em quando: se o primeiro pedido não der certo por falha de
+ * rede, tempo esgotado, 429 ou 5xx, espera um instante e tenta mais uma vez antes de desistir. Só então o erro chega a quem chamou, e a tela
+ * diz que a busca não respondeu (e não que o lugar não existe).
+ *
+ * @param {string} texto
+ * @param {object} [opcoes]
+ * @param {AbortSignal} [opcoes.sinal]  para cancelar
+ * @param {number} [opcoes.tentativas]  quantos pedidos no máximo (padrão: 2)
+ * @param {number} [opcoes.esperaMs]    pausa entre um pedido e outro
+ * @returns {Promise<Array<{ id: string, nome: string, detalhe: string, lon: number, lat: number }>>}
+ * @throws {ErroRota} "rede" ou "servico", depois da última tentativa
+ */
+export async function buscarEnderecos(texto, { sinal, tentativas = 2, esperaMs = CONFIG.rotas.esperaNovaTentativaMs } = {}) {
+  for (let tentativa = 1; ; tentativa += 1) {
+    try {
+      return await pedirEnderecos(texto, sinal);
+    } catch (erro) {
+      if (sinal?.aborted || tentativa >= tentativas || !valeRepetir(erro)) throw erro;
+    }
+    await pausa(esperaMs, sinal);
   }
 }

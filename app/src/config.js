@@ -42,5 +42,12 @@ export const CONFIG = {
     intervaloMs: 1100,
     /** Quanto esperar pela resposta antes de desistir. */
     tempoLimiteMs: 12000,
+    /**
+     * Quanto esperar pela busca de endereço antes de desistir. Menor que o da rota: a busca
+     * costuma responder em 1 s e, se falhar, é tentada mais uma vez antes do aviso de erro.
+     */
+    tempoLimiteEnderecoMs: 6000,
+    /** Pausa antes da segunda tentativa da busca de endereço. */
+    esperaNovaTentativaMs: 700,
   },
 };
