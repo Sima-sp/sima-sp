@@ -37,6 +37,7 @@ import { Tampa } from "../componentes/Tampa";
 import { corNivel, rotuloNivel } from "../dados/niveis";
 import { nivelVisivel, statusAgora } from "../dados/modelo";
 import { lerCoresDoTema, montarEstilo, rotaParaGeoJson } from "./estiloMapa";
+import { rotuloDoTipo as rotuloDoRelato } from "../relatos/relatos";
 import { agruparPontos } from "./agrupar.js";
 import { assinaturaDasRuas, ruasParaGeoJson } from "./ruasAfetadas.js";
 
@@ -48,7 +49,8 @@ const TEXTOS = {
 };
 
 export const MapaBase = forwardRef(function MapaBase(
-  { pontos, agora, tema, selecionadoId, rota = null, aoTocarPonto, aoTocarFundo, aoMexerNoMapa, medirAreaLivre },
+  { pontos, agora, tema, selecionadoId, rota = null, relatos = [], relatoSelecionadoId = null, aoTocarPonto, aoTocarRelato, aoTocarFundo,
+    aoMexerNoMapa, medirAreaLivre },
   ref,
 ) {
   const caixa = useRef(null);
@@ -254,6 +256,7 @@ export const MapaBase = forwardRef(function MapaBase(
       {mapa ? (
         <Marcadores mapa={mapa} pontos={pontos} agora={agora} zoom={zoom} selecionadoId={selecionadoId} aoTocar={aoTocarPonto} />
       ) : null}
+      {mapa ? <MarcadoresDeRelato mapa={mapa} relatos={relatos} selecionadoId={relatoSelecionadoId} aoTocar={aoTocarRelato} /> : null}
     </>
   );
 });
@@ -326,6 +329,64 @@ function Marcadores({ mapa, pontos, agora, zoom, selecionadoId, aoTocar }) {
       : <BotaoGrupo membros={g.membros} agora={agora} aoTocar={abrirGrupo} />;
     return createPortal(conteudo, item.no, g.chave);
   });
+}
+
+/**
+ * Os relatos aprovados sobre o mapa. Têm forma própria (um losango com uma exclamação), para não
+ * se confundirem com as tampas dos bueiros: relato é o que alguém viu, não o que o sensor mediu.
+ * São poucos e não se agrupam; o conteúdo é fixo, então é montado direto, sem portal do React.
+ */
+function MarcadoresDeRelato({ mapa, relatos, selecionadoId, aoTocar }) {
+  const registro = useRef(new Map()); // id do relato → { marcador, botao }
+  const toque = useRef(aoTocar);
+  toque.current = aoTocar;
+
+  useEffect(() => {
+    const reg = registro.current;
+    const vivos = new Set(relatos.map((r) => r.id));
+    for (const [id, item] of reg) {
+      if (!vivos.has(id)) {
+        item.marcador.remove();
+        reg.delete(id);
+      }
+    }
+    for (const relato of relatos) {
+      let item = reg.get(relato.id);
+      if (!item) {
+        const no = document.createElement("div");
+        // Por cima das tampas comuns e abaixo da tampa selecionada (30).
+        no.style.zIndex = "8";
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.innerHTML = '<span class="mk-anel" aria-hidden="true"></span>'
+          + '<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path class="mk-relato-forma" d="M13 1.5 24.5 13 13 24.5 1.5 13z"/>'
+          + '<path class="mk-relato-sinal" d="M13 7.5v6.5M13 17.6v.4"/></svg>';
+        botao.addEventListener("click", (evento) => {
+          evento.stopPropagation();
+          toque.current?.(relato.id);
+        });
+        no.append(botao);
+        // Deslocado para cima e para a direita: um relato feito em cima de um bueiro (o caso mais
+        // comum, por "Reportar problema aqui") não fica escondido atrás da tampa, nem a tampa atrás dele.
+        item = { marcador: new Marker({ element: no, anchor: "center", offset: [15, -15] }).setLngLat([relato.lon, relato.lat]).addTo(mapa), botao };
+        reg.set(relato.id, item);
+      }
+      const selecionado = relato.id === selecionadoId;
+      item.botao.className = `mk mk-relato${selecionado ? " mk-sel" : ""}`;
+      item.botao.setAttribute("aria-label", `Relato aprovado: ${rotuloDoRelato(relato.tipo)}`);
+      item.botao.setAttribute("aria-pressed", String(selecionado));
+    }
+  }, [mapa, relatos, selecionadoId]);
+
+  useEffect(() => {
+    const reg = registro.current;
+    return () => {
+      for (const item of reg.values()) item.marcador.remove();
+      reg.clear();
+    };
+  }, [mapa]);
+
+  return null;
 }
 
 function BotaoTampa({ ponto, agora, selecionado, comRotulo, aoTocar }) {

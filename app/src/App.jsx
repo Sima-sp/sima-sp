@@ -20,7 +20,8 @@ import Menu from "./telas/Menu";
 import Rotas from "./telas/Rotas";
 import Avisos from "./telas/Avisos";
 import ComoFunciona from "./telas/ComoFunciona";
-import { EmConstrucao, Sobre } from "./telas/EmConstrucao";
+import { Sobre } from "./telas/Sobre";
+import { MeusRelatos, Reportar } from "./telas/Reportar";
 import { Cadastro, Entrar, Perfil } from "./telas/Conta";
 import Privacidade from "./telas/Privacidade";
 import { PrimeiroUso, ProvedorApresentacao } from "./componentes/PrimeiroUso";
@@ -55,7 +56,8 @@ export default function App() {
               <Route path="/menu" element={<Menu />} />
               <Route path="/sobre" element={<Sobre />} />
               <Route path="/rotas" element={<Rotas />} />
-              <Route path="/reportar" element={<EmConstrucao tela="reportar" />} />
+              <Route path="/reportar" element={<Reportar />} />
+              <Route path="/relatos" element={<MeusRelatos />} />
               <Route path="/alertas" element={<Avisos />} />
               <Route path="/ia" element={<ComoFunciona />} />
               {/* O sensor ao vivo virou uma página separada (sensor.html); o endereço antigo leva até ela. */}

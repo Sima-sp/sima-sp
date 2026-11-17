@@ -60,7 +60,7 @@ export default function Menu() {
         {atalho("Bairros", "/bairros", <IconeBairros pequeno />)}
         {atalho("Rotas", "/rotas", <IconeRota pequeno />)}
         {atalho("Avisos e alertas", "/alertas", <IconeSino pequeno />)}
-        {atalho("Reportar problema", "/reportar", <IconeMais pequeno />, true)}
+        {atalho("Reportar problema", "/reportar", <IconeMais pequeno />)}
       </div>
 
       <h2 className="grp-t">Entender</h2>

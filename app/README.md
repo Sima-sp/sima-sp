@@ -628,6 +628,28 @@ Limites, que o Perfil explica quando é o caso:
 | Navegador sem push | Os alertas continuam aparecendo no app |
 | `npm run dev` ou endereço sem https | A notificação só funciona no app publicado: o service worker não existe em desenvolvimento |
 
+### Relatos (Reportar)
+
+A pessoa avisa de um problema; o administrador analisa; o aprovado aparece no mapa por 24 horas,
+**sem nada de quem enviou**. Código em `src/relatos/` e `src/telas/Reportar.jsx`.
+
+| Tela | Endereço | Rota do backend |
+|---|---|---|
+| Reportar | `#/reportar` (ou `#/reportar?ponto=ID`, vindo de um bueiro) | `POST /ocorrencias` (multipart) |
+| Meus relatos | `#/relatos` | `GET /usuarios/me/ocorrencias` |
+| Relatos no mapa | o losango com a exclamação; `#/?relato=ID` abre o cartão | `GET /ocorrencias` e `GET /ocorrencias/{id}/foto` |
+
+- **Precisa de conta.** Sem ela, a tela explica e leva a Entrar, voltando para cá depois.
+- **Tipo**: bueiro entupido, rua alagando, lixo na rua ou outro (os do backend).
+- **Lugar**: "Onde estou agora" ou arrastando um mapa pequeno até o lugar ficar debaixo da mira.
+  Vindo de um bueiro, já começa nele.
+- **Foto** (opcional): câmera ou galeria. É reduzida no aparelho para até 1.600 px no lado maior,
+  o que também tira os dados escondidos dela; o servidor confere e limpa de novo.
+- **Erro de rede no envio**: o texto e a foto continuam na tela.
+- O aviso do 199 e do 193 fica sempre no topo: o relato não chama socorro.
+- **Demonstração**: a tela diz que relatar depende do servidor. Não há envio de mentira nem
+  relatos no mapa.
+
 ### O que acontece quando o backend não responde
 
 O app **não** troca para os dados de demonstração: num app de risco, mostrar dados inventados
@@ -670,6 +692,9 @@ src/
     ContaContexto.jsx      a conta para as telas (useConta)
     push.js                notificação no celular: permissão, inscrição, situação do aparelho e os textos (e o teste)
     conta.test.js          testes da sessão e da conta, com um servidor de mentira
+  relatos/
+    relatos.js             relatos do cidadão: tipos, conferência, redução da foto, envio e leitura (e o teste)
+    SeletorDePosicao.jsx   mapa pequeno com mira para marcar o lugar do problema
   sensor/                  o painel do sensor (página separada: sensor.html)
     pagina.jsx             entrada da página: fontes, estilos e o Painel
     Painel.jsx             a página: desenho do bueiro, nível, medida, simulação e ajustes
@@ -711,7 +736,8 @@ src/
     ComoFunciona.jsx       como a IA funciona, com o simulador
     Menu.jsx               atalhos, tema, ajustes e a chave do modo vitrine
     useVitrine.js          modo vitrine: espera a falta de toque, toca as cenas e para ao primeiro toque
-    EmConstrucao.jsx       telas das próximas etapas e a tela Sobre
+    Sobre.jsx              como ler o mapa
+    Reportar.jsx           Reportar problema e Meus relatos
     Conta.jsx              Entrar, Criar conta e Perfil (avisos, localização de referência, sair, apagar a conta)
     Privacidade.jsx        para que serve cada dado e como apagar a conta
   estilos/
@@ -773,7 +799,6 @@ hospedagem estática sem configurar o servidor.
 | Viagem acompanhando o GPS do aparelho (hoje a viagem é simulada) | Ler a posição do aparelho durante a viagem e encaixá-la no caminho; testar na rua |
 | Instruções por voz na viagem | Decisão do grupo; o serviço de rotas já devolve as frases em português |
 | Rotas a pé ou de transporte | Fora do escopo: o grupo decidiu por rotas só de carro |
-| Reportar problema | Domínio de Ocorrência no backend |
 | Aviso por região vindo do servidor | Formato de `GET /previsoes/regioes` (hoje o app calcula com a mesma regra) |
 | Trecho de rua para sensores fora dos 136 pontos conhecidos | Rodar `npm run ruas` com a posição deles (os de `docs/sensores-capital.sql` já têm trecho) |
 | Mostrar as duas chances (antes e depois do sensor) também nos dados reais | O backend mandar `probabilidadeModelo` em `/previsoes`; o app já lê |

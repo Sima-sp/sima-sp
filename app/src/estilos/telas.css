@@ -478,3 +478,28 @@ a.row.mu-link, a.row.mu-link:hover { color: var(--bone-100); text-decoration: no
 .mp-alerta .mp-aviso-dot { background: var(--r4); }
 .av-alerta-nota { padding: 8px 36px 0; }
 .ms-alerta { margin-top: 6px; font-size: 14px; font-weight: 700; color: var(--r4); }
+
+/* ───────────── Relatos: Reportar, Meus relatos e os relatos no mapa ───────────── */
+.rl-emergencia { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--fill-2); color: var(--bone-100); }
+.rl-tipos { display: flex; flex-wrap: wrap; gap: 8px; }
+.rl-texto { height: auto; min-height: 96px; padding: 14px 16px; line-height: 1.4; resize: vertical; }
+.rl-mapa { position: relative; height: 220px; border-radius: 16px; overflow: hidden; background: var(--card); }
+.rl-mapa-caixa { position: absolute; inset: 0; }
+/* A mira: fica parada no centro; o lugar marcado é o que está debaixo dela. */
+.rl-mira { position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%;
+  border: 3px solid var(--route-deep); box-shadow: 0 0 0 2px #ffffff, 0 2px 8px rgba(0,0,0,0.35); pointer-events: none; }
+.rl-mira::after { content: ''; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--route-deep); }
+.rl-previa { width: 100%; max-height: 220px; object-fit: cover; border-radius: 16px; }
+.rl-lista { list-style: none; padding: 0; }
+.rl-item { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--sep); }
+.rl-item:last-child { border-bottom: 0; }
+.rl-item-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--bone-50); }
+/* A situação vai em texto dentro de uma etiqueta neutra: as cores de risco não são usadas aqui. */
+.rl-situacao { flex: none; padding: 3px 10px; border-radius: 10px; background: var(--fill-2); color: var(--bone-100); font-size: 13.5px; font-weight: 700; }
+.rl-situacao-aprovada { background: var(--route-deep); color: #ffffff; }
+.mk-relato svg { left: 9px; top: 9px; }
+.mk-relato-forma { fill: var(--bone-50); stroke: var(--iron-900); stroke-width: 1.5; stroke-linejoin: round; }
+.mk-relato-sinal { fill: none; stroke: var(--iron-900); stroke-width: 2.6; stroke-linecap: round; }
+.rl-cartao { padding-top: 12px; }
+.rl-cartao-texto { margin-top: 12px; color: var(--bone-100); overflow-wrap: anywhere; }
+.rl-cartao-foto { display: block; width: 100%; max-height: 200px; margin-top: 12px; object-fit: cover; border-radius: 18px; background: var(--fill-2); }
