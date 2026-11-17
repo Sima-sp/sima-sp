@@ -1,0 +1,34 @@
+-- V8: notificação push (#14).
+--
+-- Inscrição: um aparelho (navegador) de um usuário, com o endereço do serviço de push e as chaves
+-- que o navegador gerou. Recusada pelo serviço (404/410), fica inativa.
+-- Envio: um registro por alerta e pessoa, para não avisar a mesma pessoa duas vezes pelo mesmo
+-- alerta (índice único). Conta excluída (#19) leva junto as inscrições e os envios.
+
+CREATE TABLE TBL_INSCRICAO_PUSH (
+    ID_INSCRICAO        BIGINT          NOT NULL    PRIMARY KEY AUTO_INCREMENT,
+    ID_USUARIO          BIGINT          NOT NULL,
+    TX_ENDPOINT         VARCHAR(500)    NOT NULL,
+    TX_CHAVE_P256DH     VARCHAR(100)    NOT NULL,
+    TX_CHAVE_AUTH       VARCHAR(50)     NOT NULL,
+    FL_ATIVA            BOOLEAN         NOT NULL,
+    DT_DATA_CRIACAO     DATETIME(2)     NOT NULL,
+
+    CONSTRAINT FK_INS_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES TBL_USUARIO (ID_USUARIO) ON DELETE CASCADE,
+    CONSTRAINT UQ_INS_ENDPOINT UNIQUE (TX_ENDPOINT)
+);
+
+CREATE INDEX IDX_INS_USUARIO_ATIVA ON TBL_INSCRICAO_PUSH (ID_USUARIO, FL_ATIVA);
+
+CREATE TABLE TBL_ENVIO_PUSH (
+    ID_ENVIO            BIGINT          NOT NULL    PRIMARY KEY AUTO_INCREMENT,
+    ID_ALERTA           BIGINT          NOT NULL,
+    ID_USUARIO          BIGINT          NOT NULL,
+    TX_RESULTADO        VARCHAR(20)     NOT NULL,
+    DT_DATA_ENVIO       DATETIME(2)     NOT NULL,
+
+    CONSTRAINT FK_ENV_ALERTA  FOREIGN KEY (ID_ALERTA)  REFERENCES TBL_ALERTA (ID_ALERTA) ON DELETE CASCADE,
+    CONSTRAINT FK_ENV_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES TBL_USUARIO (ID_USUARIO) ON DELETE CASCADE,
+    CONSTRAINT UQ_ENV_ALERTA_USUARIO UNIQUE (ID_ALERTA, ID_USUARIO),
+    CONSTRAINT CHK_ENV_RESULTADO CHECK (TX_RESULTADO IN ('ENVIANDO', 'ENVIADO', 'FALHOU', 'SEM_APARELHO'))
+);
