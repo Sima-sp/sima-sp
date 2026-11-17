@@ -15,6 +15,7 @@
 
 import { CONFIG } from "../config.js";
 import { definirSessao, sessaoAtual } from "../conta/sessao.js";
+import { normalizarAlerta } from "./alertas.js";
 import { normalizarPrevisao } from "./modelo.js";
 
 /**
@@ -171,4 +172,15 @@ export async function buscarPontos() {
     console.warn(`[SIMA] ${semPosicao} item(ns) de /previsoes vieram sem id ou posição e ficaram fora do mapa.`);
   }
   return { pontos, semPosicao };
+}
+
+/**
+ * Alertas ativos (GET /alertas?status=ATIVO, público). São criados pelo backend a partir da
+ * leitura do sensor; a previsão da IA não gera alerta.
+ */
+export async function buscarAlertas() {
+  const corpo = await pedirJson("/alertas?status=ATIVO");
+  const itens = Array.isArray(corpo) ? corpo : corpo?.content;
+  if (!Array.isArray(itens)) throw new ErroApi("O servidor respondeu num formato inesperado.");
+  return itens.map(normalizarAlerta).filter(Boolean);
 }

@@ -6,10 +6,11 @@
 // O que cada dado guarda e para quê está na tela Privacidade (src/telas/Privacidade.jsx); o
 // cadastro só segue com a caixa "Li para que meus dados são usados" marcada.
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useConta } from "../conta/ContaContexto";
 import { BAIRROS_DE_REFERENCIA, arredondar, rotuloDoTipo, telefoneFormatado, validarCadastro } from "../conta/conta";
+import { TEXTO_DO_PUSH, ambienteDoNavegador, desligarPush, ligarPush, situacaoDoPush } from "../conta/push";
 import { CabecalhoTela, Tela } from "../componentes/Tela";
 import { IconeSeta } from "../componentes/Icones";
 
@@ -249,7 +250,21 @@ export function Perfil() {
       setOcupado(null);
     }
   }
-  const mudarAlerta = (ligado) => fazer("alerta", () => conta.atualizarPerfil({ permissaoAlerta: ligado }));
+  // Notificação neste aparelho (src/conta/push.js). A permissão do navegador só é pedida aqui,
+  // depois de um toque em "Ligados" ou em "Ligar neste aparelho".
+  const [push, setPush] = useState(() => (usuario ? situacaoDoPush(ambienteDoNavegador(), usuario.email) : "desligada"));
+  useEffect(() => {
+    if (usuario) setPush(situacaoDoPush(ambienteDoNavegador(), usuario.email));
+  }, [usuario]);
+  const ligarNesteAparelho = async () => setPush(await ligarPush(usuario.email));
+  const mudarAlerta = (ligado) => fazer("alerta", async () => {
+    await conta.atualizarPerfil({ permissaoAlerta: ligado });
+    if (ligado) await ligarNesteAparelho();
+    else {
+      await desligarPush();
+      setPush(situacaoDoPush(ambienteDoNavegador(), usuario.email));
+    }
+  });
   const atualizarLocal = () => fazer("local", async () => {
     const posicao = await pedirPosicao();
     await conta.atualizarPerfil({ latitude: posicao.latitude, longitude: posicao.longitude });
@@ -258,7 +273,9 @@ export function Perfil() {
     const bairro = BAIRROS_DE_REFERENCIA.find((b) => b.nome === nome);
     if (bairro) fazer("local", () => conta.atualizarPerfil({ latitude: bairro.latitude, longitude: bairro.longitude }), `Localização de referência: ${bairro.nome}.`);
   };
-  const sair = () => { conta.sair(); navegar("/", { replace: true }); };
+  // Ao sair, o aparelho deixa de receber os avisos desta conta. O pedido de remoção sai antes de
+  // a sessão ser apagada (ele precisa do token), mas ninguém espera por ele.
+  const sair = () => { desligarPush(); conta.sair(); navegar("/", { replace: true }); };
   const apagar = () => fazer("apagar", async () => { await conta.apagarConta(); navegar("/", { replace: true }); });
 
   if (!conta.disponivel || !usuario) {
@@ -298,7 +315,13 @@ export function Perfil() {
           <button type="button" className={usuario.permissaoAlerta ? "seg-on" : ""} aria-pressed={usuario.permissaoAlerta} disabled={ocupado === "alerta"} onClick={() => mudarAlerta(true)}>Ligados</button>
         </div>
       </div>
-      <p className="micro ct-nota">Ligados, o SIMA pode avisar quando um bueiro perto da sua localização de referência entrar em alerta.</p>
+      <p className="micro ct-nota">Ligados, o SIMA avisa quando o sensor de um bueiro perto da sua localização de referência medir nível crítico.</p>
+      {usuario.permissaoAlerta && TEXTO_DO_PUSH[push] ? <p className="small ct-nota" role="status">{TEXTO_DO_PUSH[push]}</p> : null}
+      {usuario.permissaoAlerta && push === "desligada" ? (
+        <p className="ct-nota">
+          <button type="button" className="btn btn-iron" disabled={ocupado === "alerta"} onClick={() => fazer("alerta", ligarNesteAparelho)}>Ligar a notificação neste aparelho</button>
+        </p>
+      ) : null}
 
       <h2 className="grp-t">Localização de referência</h2>
       <div className="grp ct-bloco">

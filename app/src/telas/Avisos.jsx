@@ -6,18 +6,25 @@
 // Aberta pelo aviso que aparece sobre o mapa, pelo Menu e pela tela da IA. Tocar numa região
 // abre a lista dos bueiros dela (tela Bairros).
 //
-// Avisar no celular (notificação) depende do servidor e do aplicativo instalado: entra depois.
+// Acima das regiões ficam os ALERTAS DO SENSOR (src/dados/alertas.js): bueiros que o sensor mediu
+// em nível crítico. É medição, não previsão, e a tela diz isso.
+//
+// A notificação no celular é ligada no Perfil (precisa de conta e do servidor).
 
 import { useMemo } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { usePontos } from "../dados/PontosContexto";
 import { REGRA_REGIAO, ROTULO_AVISO, apoioDaRegiao, avisosPorRegiao } from "../dados/regioes";
-import { horaCurta } from "../dados/modelo";
+import { horaCurta, tituloDoPonto } from "../dados/modelo";
+import { textoDoAlerta } from "../dados/alertas";
+import { useConta } from "../conta/ContaContexto";
+import { Tampa } from "../componentes/Tampa";
 import { CabecalhoTela, Tela } from "../componentes/Tela";
 import { IconeSeta } from "../componentes/Icones";
 
 export default function Avisos() {
-  const { pontos, agora, carregando, fonte, demo } = usePontos();
+  const { pontos, alertas, agora, carregando, fonte, demo } = usePontos();
+  const conta = useConta();
   const navegar = useNavigate();
   const regioes = useMemo(() => avisosPorRegiao(pontos, agora), [pontos, agora]);
 
@@ -55,14 +62,36 @@ export default function Avisos() {
   }
 
   return (
-    <Tela titulo="Avisos por região">
-      <CabecalhoTela titulo="Avisos por região" />
+    <Tela titulo="Avisos">
+      <CabecalhoTela titulo="Avisos" />
       <p className="sub av-intro" role="status">{situacao}</p>
       <p className="micro av-fonte">
         {fonte === "demo"
           ? `Demonstração${demo ? ` · ${demo.climas.find((c) => c.id === demo.clima)?.rotulo.toLowerCase()}` : ""}. Mude o clima no mapa para ver os avisos mudarem.`
           : `Calculado às ${horaCurta(agora)} com as previsões de cada bueiro.`}
       </p>
+
+      {alertas.length ? (
+        <>
+          <h2 className="grp-t av-titulo"><span className="av-marca av-marca-4" aria-hidden="true" />Alertas do sensor · {alertas.length === 1 ? "1 bueiro" : `${alertas.length} bueiros`}</h2>
+          <div className="grp">
+            {alertas.map((alerta) => (
+              <button key={alerta.id} type="button" className="row row-2" onClick={() => navegar({ pathname: "/", search: `?ponto=${encodeURIComponent(alerta.sensorId)}` })}>
+                <Tampa nivel={4} tamanho={30} />
+                <span className="row-k">
+                  {alerta.codigo ? tituloDoPonto(alerta) : "Bueiro"}
+                  <span className="row-sub">{alerta.endereco ? `${alerta.endereco} · ${alerta.bairro}` : alerta.bairro ?? ""}</span>
+                  <span className="row-sub">{textoDoAlerta(alerta)}</span>
+                </span>
+                <span className="row-chev"><IconeSeta pequeno /></span>
+              </button>
+            ))}
+          </div>
+          <p className="micro av-alerta-nota">
+            Alerta é <b>medição</b>: o sensor leu o bueiro cheio. Não é previsão. Ele sai da lista quando a água baixa.
+          </p>
+        </>
+      ) : null}
 
       {grupo(3, emAlto)}
       {grupo(2, emAtencao)}
@@ -98,7 +127,9 @@ export default function Avisos() {
         </button>
       </div>
       <p className="micro av-rodape">
-        O aviso aparece no app. Receber notificação no celular entra numa próxima etapa.
+        {conta.disponivel
+          ? <>Para receber no celular o alerta de um bueiro perto de você, ligue os avisos no <Link to="/perfil">Perfil</Link>.</>
+          : "A notificação no celular depende do servidor do SIMA; esta é a versão de demonstração."}{" "}
         Em emergência, ligue <a href="tel:199">199</a> (Defesa Civil) ou <a href="tel:193">193</a> (Bombeiros).
       </p>
     </Tela>
