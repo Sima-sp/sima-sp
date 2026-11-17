@@ -68,22 +68,18 @@ public class UsuarioService {
         return response;
     }
 
+    /** Pelo admin: ativa ou desativa a conta. */
     @Transactional
-    public void ativarUsuarioPorEmail(String email)
+    public UsuarioResponse definirAtivoPorEmail(String email, boolean ativo)
     {
         Usuario usuario = repository.findByEmailIgnoreCase(email.trim().toLowerCase(Locale.ROOT)).orElseThrow(() -> new RecursoNaoEncontradoException("Usuário com este e-mail não encontrado"));
-        usuario.setAtivo(true);
+        usuario.setAtivo(ativo);
+        return mapper.paraUsuarioResponse(usuario);
     }
 
+    /** {@code PATCH /usuarios/me}: muda só os campos enviados. */
     @Transactional
-    public void desativarUsuarioPorEmail(String email)
-    {
-        Usuario usuario = repository.findByEmailIgnoreCase(email.trim().toLowerCase(Locale.ROOT)).orElseThrow(() -> new RecursoNaoEncontradoException("Usuário com este e-mail não encontrado"));
-        usuario.setAtivo(false);
-    }
-
-    @Transactional
-    public void atualizarLocalizacao(AlterarLocalizacaoUsuarioRequest request, Long id)
+    public UsuarioResponse atualizarPerfil(AtualizarPerfilRequest request, Long id)
     {
         Usuario usuario = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Usuário com este id não encontrado"));
 
@@ -92,56 +88,32 @@ public class UsuarioService {
             throw new RecursoNaoEncontradoException("Usuário com id " + id + " foi desativado.");
         }
 
-        if(usuario.getLatitude().equals(request.latitude()) && usuario.getLongitude().equals(request.longitude()))
+        if((request.latitude() == null) != (request.longitude() == null))
         {
-            throw new AlteracaoInvalidaException("A nova localização é a mesma que a anterior.");
+            throw new AlteracaoInvalidaException("Envie a latitude e a longitude juntas.");
         }
 
-
-        usuario.setLatitude(request.latitude());
-        usuario.setLongitude(request.longitude());
-
-    }
-
-    @Transactional
-    public void atualizarPermissaoAlerta(AlterarPermissaoAlertaRequest request, Long id)
-    {
-        Usuario usuario = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Usuário com este id não encontrado"));
-
-        if(!Boolean.TRUE.equals(usuario.getAtivo()))
+        if(request.telefone() != null && !request.telefone().equals(usuario.getTelefone()))
         {
-            throw new RecursoNaoEncontradoException("Usuário com id " + id + " foi desativado.");
+            if(repository.existsByTelefone(request.telefone()))
+            {
+                throw new RecursoExistenteException("Este número pertence a outro usuário.");
+            }
+            usuario.setTelefone(request.telefone());
         }
 
-        if(usuario.getPermissaoAlerta().equals(request.permissaoAlerta()))
+        if(request.latitude() != null)
         {
-            throw new AlteracaoInvalidaException("A nova permissão é igual a anterior.");
+            usuario.setLatitude(request.latitude());
+            usuario.setLongitude(request.longitude());
         }
 
-        usuario.setPermissaoAlerta(request.permissaoAlerta());
-    }
-
-    @Transactional
-    public void atualizarTelefone(AlterarTelefoneUsuarioRequest request, Long id)
-    {
-        Usuario usuario = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Usuário com este id não encontrado"));
-
-        if(!Boolean.TRUE.equals(usuario.getAtivo()))
+        if(request.permissaoAlerta() != null)
         {
-            throw new RecursoNaoEncontradoException("Usuário com id " + id + " foi desativado.");
+            usuario.setPermissaoAlerta(request.permissaoAlerta());
         }
 
-        if(usuario.getTelefone().equals(request.telefone()))
-        {
-            throw new AlteracaoInvalidaException("O novo telefone inserido é o mesmo do antigo");
-        }
-
-        if(repository.existsByTelefone(request.telefone()))
-        {
-            throw new AlteracaoInvalidaException("Este número pertence a outro usuário");
-        }
-
-        usuario.setTelefone(request.telefone());
+        return mapper.paraUsuarioResponse(usuario);
     }
 
     @Transactional

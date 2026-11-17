@@ -64,7 +64,7 @@ class AutenticacaoIntegracaoTest {
     }
 
     private HttpResponse<String> cadastrar(String email, String telefone, String senha) throws Exception {
-        return post("/usuarios/cadastro", """
+        return post("/usuarios", """
                 {"email": "%s", "telefone": "%s", "senha": "%s",
                  "latitude": -23.515200, "longitude": -46.584100, "permissaoAlerta": true}
                 """.formatted(email, telefone, senha));
@@ -99,6 +99,64 @@ class AutenticacaoIntegracaoTest {
         assertThat(perfil.body()).contains(email).contains("CIDADAO").contains("\"permissaoAlerta\":true");
     }
 
+    private HttpResponse<String> enviar(String metodo, String caminho, String token, String json) throws Exception {
+        HttpRequest.Builder pedido = HttpRequest.newBuilder(URI.create(url(caminho)))
+                .header("Content-Type", "application/json")
+                .method(metodo, HttpRequest.BodyPublishers.ofString(json));
+        if (token != null) {
+            pedido.header("Authorization", "Bearer " + token);
+        }
+        return http.send(pedido.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    void atualizarPerfilMudaSoOQueVeio() throws Exception {
+        String email = emailNovo();
+        cadastrar(email, telefoneNovo(), "senha-segura-1");
+        String token = token(login(email, "senha-segura-1"));
+        String telefone = telefoneNovo();
+
+        HttpResponse<String> alterado = enviar("PATCH", "/usuarios/me", token,
+                "{\"telefone\": \"" + telefone + "\", \"permissaoAlerta\": false}");
+        assertThat(alterado.statusCode()).as(alterado.body()).isEqualTo(200);
+        assertThat(alterado.body()).contains(telefone).contains("\"permissaoAlerta\":false").contains("-23.5152");
+
+        HttpResponse<String> soLatitude = enviar("PATCH", "/usuarios/me", token, "{\"latitude\": -23.5}");
+        assertThat(soLatitude.statusCode()).isEqualTo(400);
+    }
+
+    @Test
+    void trocarSenha() throws Exception {
+        String email = emailNovo();
+        cadastrar(email, telefoneNovo(), "senha-segura-1");
+        String token = token(login(email, "senha-segura-1"));
+
+        HttpResponse<String> trocada = enviar("PUT", "/usuarios/me/senha", token,
+                "{\"senhaAtual\": \"senha-segura-1\", \"novaSenha\": \"senha-nova-22\", \"confirmacaoNovaSenha\": \"senha-nova-22\"}");
+        assertThat(trocada.statusCode()).as(trocada.body()).isEqualTo(204);
+        assertThat(login(email, "senha-segura-1").statusCode()).isEqualTo(401);
+        assertThat(login(email, "senha-nova-22").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void adminDesativaContaEElaNaoEntraMais() throws Exception {
+        String email = emailNovo();
+        cadastrar(email, telefoneNovo(), "senha-segura-1");
+        String admin = token(login("admin.teste@simasp.local", "senha-do-admin-123"));
+
+        HttpResponse<String> desativada = enviar("PATCH", "/admin/usuarios/" + email, admin, "{\"ativo\": false}");
+        assertThat(desativada.statusCode()).as(desativada.body()).isEqualTo(200);
+        assertThat(login(email, "senha-segura-1").statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void swaggerAbreSemLoginEListaAsRotas() throws Exception {
+        HttpResponse<String> api = get("/v3/api-docs", null);
+        assertThat(api.statusCode()).as(api.body()).isEqualTo(200);
+        assertThat(api.body()).contains("/leituras").contains("/admin/sensores/{id}").contains("bearer");
+        assertThat(get("/swagger-ui/index.html", null).statusCode()).isEqualTo(200);
+    }
+
     @Test
     void emailRepetidoNaoCadastra() throws Exception {
         String email = emailNovo();
@@ -108,7 +166,7 @@ class AutenticacaoIntegracaoTest {
 
     @Test
     void cadastroInvalidoDa400ENao500() throws Exception {
-        HttpResponse<String> resposta = post("/usuarios/cadastro", """
+        HttpResponse<String> resposta = post("/usuarios", """
                 {"email": "nao-e-email", "telefone": "12", "senha": "curta",
                  "latitude": -23.5, "longitude": -46.6, "permissaoAlerta": false}
                 """);
@@ -133,6 +191,10 @@ class AutenticacaoIntegracaoTest {
     void mapaContinuaPublico() throws Exception {
         int status = get("/previsoes", null).statusCode();
         assertThat(status).isNotIn(401, 403);
+        HttpResponse<String> sensores = get("/sensores?status=ATIVO&size=5", null);
+        assertThat(sensores.statusCode()).as(sensores.body()).isEqualTo(200);
+        assertThat(sensores.body()).contains("\"content\"").contains("\"page\"");
+        assertThat(get("/sensores?latitude=-23.5", null).statusCode()).isEqualTo(400);
     }
 
     @Test
@@ -143,7 +205,7 @@ class AutenticacaoIntegracaoTest {
 
     @Test
     void administradorInicialEntraNoAdminECidadaoNao() throws Exception {
-        String caminho = "/admin/usuarios/proximos?longitude=-46.633308&latitude=-23.550520&distanciaMetros=50000";
+        String caminho = "/admin/usuarios?longitude=-46.633308&latitude=-23.550520&raio=50000";
 
         HttpResponse<String> admin = login("admin.teste@simasp.local", "senha-do-admin-123");
         assertThat(admin.statusCode()).as(admin.body()).isEqualTo(200);

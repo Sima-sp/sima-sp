@@ -1,10 +1,11 @@
 package br.com.back_end.simasp.sensor.service;
 
+import br.com.back_end.simasp.exception.AlteracaoInvalidaException;
 import br.com.back_end.simasp.exception.RecursoNaoEncontradoException;
 import br.com.back_end.simasp.sensor.dto.SensorResponse;
+import br.com.back_end.simasp.sensor.enums.StatusSensor;
 import br.com.back_end.simasp.sensor.mapper.SensorMapper;
 import br.com.back_end.simasp.sensor.repository.SensorRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -15,25 +16,38 @@ import java.util.List;
 @Service
 public class SensorService {
 
-    @Autowired
-    private SensorRepository repository;
+    private final SensorRepository repository;
+    private final SensorMapper mapper;
 
-    @Autowired
-    private SensorMapper mapper;
+    public SensorService(SensorRepository repository, SensorMapper mapper) {
+        this.repository = repository;
+        this.mapper = mapper;
+    }
 
-    // Busca sensor por ID
     public SensorResponse buscarSensorPorId(Long id)
     {
         var sensor = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Não há sensor com o id: " + id));
         return mapper.paraSensorResponse(sensor);
     }
 
-    // Traz sensores ativos que estão dentro de um alcance máximo em metros num local específico
-    public Page<SensorResponse> buscarSensoresAtivosProximos(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable paginacao)
+    /**
+     * Sensores com um status (padrão ATIVO). Com latitude e longitude, só os que estão a até
+     * {@code raio} metros (padrão 2 km).
+     */
+    public Page<SensorResponse> buscar(BigDecimal latitude, BigDecimal longitude, Integer raio, StatusSensor status, Pageable paginacao)
     {
-        var sensores = repository.sensoresAtivosProximosDistancia(longitude, latitude, distanciaMetros, paginacao);
-
-        return sensores.map(mapper::paraSensorResponse);
+        StatusSensor situacao = status == null ? StatusSensor.ATIVO : status;
+        if ((latitude == null) != (longitude == null))
+        {
+            throw new AlteracaoInvalidaException("Envie a latitude e a longitude juntas.");
+        }
+        if (latitude == null)
+        {
+            return repository.findByStatus(situacao, paginacao).map(mapper::paraSensorResponse);
+        }
+        int metros = raio == null ? 2000 : raio;
+        return repository.sensoresProximosPorStatus(situacao.name(), longitude, latitude, metros, paginacao)
+                .map(mapper::paraSensorResponse);
     }
 
     // Todos os sensores de uma vizinhança (um bairro pode ter vários)
