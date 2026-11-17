@@ -209,3 +209,8 @@ html { scroll-behavior: smooth; }
   .ld-ficha div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .ld-cols { grid-template-columns: minmax(0, 1fr); gap: 28px; }
 }
+
+/* ── Quem fez: o QR code fica sempre em fundo branco, para a câmera ler em qualquer tema ── */
+.ld-qr { display: flex; align-items: center; gap: 20px; margin-top: 26px; }
+.ld-qr img { flex: none; width: 132px; height: 132px; border-radius: 6px; background: #ffffff; }
+.ld-qr p { max-width: 24em; }

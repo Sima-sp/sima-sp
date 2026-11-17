@@ -12,6 +12,10 @@ export const CONFIG = {
   instituicao: process.env.NEXT_PUBLIC_INSTITUICAO || "Etec Professor Horácio Augusto da Silveira",
   email: process.env.NEXT_PUBLIC_EMAIL || "guirosseto08@gmail.com",
   repositorio: process.env.NEXT_PUBLIC_REPOSITORIO || "https://github.com/Sima-sp/sima-sp",
+  /** Vídeo da demonstração (o de reserva da banca). Vazio = o link não aparece. */
+  urlVideo: process.env.NEXT_PUBLIC_URL_VIDEO || "",
+  /** Texto do TCC, quando puder ser público. Vazio = o link não aparece. */
+  urlTcc: process.env.NEXT_PUBLIC_URL_TCC || "",
   /** Subpasta em que a página é publicada (ex.: "/sima-sp" no GitHub Pages). Vazio = raiz. */
   caminhoBase: process.env.NEXT_PUBLIC_BASE_PATH || "",
 };

@@ -3,10 +3,10 @@
 A página de apresentação do **SIMA-SP** (Sistema Inteligente de Monitoramento de Alagamentos em
 São Paulo), feita em **Next.js** e publicada como site estático.
 
-Ela conta o projeto em sete partes: o topo, com uma tampa de bueiro que enche conforme o clima
+Ela conta o projeto em oito partes: o topo, com uma tampa de bueiro que enche conforme o clima
 escolhido; como funciona (medir, prever, avisar); **o app de verdade rodando num telefone**; o
-quanto a IA acerta; o protótipo do sensor; o que é de verdade e o que é simulado; e o convite
-para abrir o mapa.
+quanto a IA acerta; o protótipo do sensor; o que é de verdade e o que é simulado; quem fez, com o
+material para a banca; e o convite para abrir o mapa.
 
 O app em si fica na pasta [`app/`](../app) deste repositório, publicado em
 `https://sima-sp.github.io/sima-sp/app/`.
@@ -47,8 +47,10 @@ Tudo é opcional e tem valor padrão (`lib/config.js`). Para mudar, copie `.env.
 | `NEXT_PUBLIC_URL_APP` | Endereço do app: destino dos botões e o que aparece no telefone | `https://sima-sp.github.io/sima-sp/app/` |
 | `NEXT_PUBLIC_BASE_PATH` | Subpasta em que a página é publicada | vazio (raiz) |
 | `NEXT_PUBLIC_INSTITUICAO` | Nome da escola no texto do projeto e no rodapé | Etec Professor Horácio Augusto da Silveira |
-| `NEXT_PUBLIC_EMAIL` | Contato do rodapé | o e-mail do grupo em `lib/config.js` |
+| `NEXT_PUBLIC_EMAIL` | Contato do rodapé | o e-mail em `lib/config.js` |
 | `NEXT_PUBLIC_REPOSITORIO` | Link para o código | `https://github.com/Sima-sp/sima-sp` |
+| `NEXT_PUBLIC_URL_VIDEO` | Vídeo da demonstração, na seção "Quem fez" | vazio (o link não aparece) |
+| `NEXT_PUBLIC_URL_TCC` | Texto do TCC, na seção "Quem fez" | vazio (o link não aparece) |
 
 Para ver a página com o app da sua máquina no telefone: rode o app (`npm run demo` na pasta
 dele) e use `NEXT_PUBLIC_URL_APP=http://localhost:5173/`.
@@ -68,16 +70,19 @@ components/landing/     uma seção por arquivo
   Ia.jsx                o quanto a IA acerta, com os números dos testes
   Sensor.jsx            o protótipo do sensor e o desenho do bueiro em corte
   Projeto.jsx           o que é de verdade e o que é simulado na demonstração
+  Equipe.jsx            quem fez, o curso e a escola, e o material para a banca (código, vídeo, TCC, QR code)
   ChamadaFinal.jsx      o convite final e os telefones de emergência
   Rodape.jsx
   Icones.jsx            ícones e a marca da "tampa que enche"
 lib/
   config.js             endereços e textos que mudam por ambiente
   demonstracao.js       o bueiro do topo (MO-06) e os números dele em cada clima
+  equipe.js             a equipe, a orientação e o curso
 styles/
   base.css              tokens dos dois temas (os mesmos do app) e componentes compartilhados
   landing.css           estilos da página (prefixo ld-)
 public/logo-bone.png    a marca
+public/qr-sima.svg      QR code que abre a página (e qr-sima.png, para slides e impressos)
 ```
 
 ## O app dentro da página
@@ -103,15 +108,32 @@ publicado.
 A página e o app precisam dizer a mesma coisa. Onde cada afirmação vive:
 
 - **Os números do topo** (`lib/demonstracao.js`): são os que o app mostra para o bueiro MO-06 em
-  cada clima da demonstração. Se a regra da demonstração do app mudar, atualize o arquivo.
+  cada clima da demonstração (`app/src/dados/demo.js`, `situacaoDoPonto`). Se a regra da
+  demonstração do app mudar, atualize o arquivo. Pela regra da IA desde 16/11/2026, a previsão vai
+  até alto: o topo nunca mostra crítico, porque crítico é só água medida em 100 %.
 - **O quanto a IA acerta** (`Ia.jsx`): os mesmos textos da tela "Como a IA funciona" do app
-  (31 de cada 100 alagamentos avisados, em média 2,4 horas antes; por região acerta 5 vezes mais).
-- **O sensor** (`Sensor.jsx`): o protótipo mede a distância até a água (só água, não mede lixo);
-  os limites de 45, 30 e 20 cm são os do servidor do sensor.
+  (31 de cada 100 alagamentos avisados, em média 2,4 horas antes, sem o sensor; por região acerta
+  5 vezes mais; médio a partir de 0,4 % e alto a partir de 1,2 %; crítico só por medição).
+- **O sensor** (`Sensor.jsx`, `LIMITES_CM`): o protótipo mede a distância até a água (só água, não
+  mede lixo); os limites de 60, 45 e 30 cm são os do painel do sensor do app
+  (`app/src/sensor/nivel.js`). Quando a calibração na bancada sair (#55), troque os números ali.
+- **Quem fez** (`lib/equipe.js`): a lista da equipe só aparece quando estiver preenchida. O vídeo e
+  o texto do TCC aparecem quando os endereços forem definidos (ver "Configuração").
 - **O que é de verdade** (`Projeto.jsx`): os lugares, a IA, as ruas e as rotas e o protótipo são
   reais; as leituras dos bueiros e o clima são simulados. Num sistema de risco, dizer o que é
   inventado importa tanto quanto mostrar o que funciona.
 - **Janela de previsão = 3 horas** em todo lugar: é o horizonte do modelo de IA.
+
+## O QR code
+
+`public/qr-sima.svg` e `public/qr-sima.png` abrem `https://sima-sp.github.io/sima-sp/`. São
+arquivos fixos: se o endereço da página mudar, gere de novo (em qualquer pasta fora do projeto):
+
+```bash
+npm i qrcode
+npx qrcode -t svg -e M -q 4 -d 0f1113 -l ffffff -o qr-sima.svg "https://sima-sp.github.io/sima-sp/"
+npx qrcode -t png -e M -q 4 -w 1024 -d 0f1113 -l ffffff -o qr-sima.png "https://sima-sp.github.io/sima-sp/"
+```
 
 ## Cores e desenho
 
@@ -132,6 +154,9 @@ A página e o app precisam dizer a mesma coisa. Onde cada afirmação vive:
   telas de imitação (entrou o app de verdade), a seção de bairros com números inventados e a
   paleta azulada (entrou a paleta neutra do app). Entraram a tampa que reage ao clima, as
   seções da IA, do sensor e do que é de verdade, os links reais e a publicação no GitHub Pages.
+- **16/11/2026:** começa a versão da banca (#64). O topo segue a regra nova da IA (a chuva extrema
+  no MO-06 é alto, não crítico), a seção da IA diz que crítico é só medição, os limites do sensor
+  ficam num lugar só e entra a seção "Quem fez", com o material para a banca e o QR code.
 
 ## Como o grupo trabalha
 

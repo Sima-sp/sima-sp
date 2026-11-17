@@ -8,6 +8,7 @@ const LINKS = [
   { href: "#a-ia", texto: "A IA" },
   { href: "#o-sensor", texto: "O sensor" },
   { href: "#projeto", texto: "O projeto" },
+  { href: "#equipe", texto: "Quem fez" },
 ];
 
 export default function Cabecalho() {

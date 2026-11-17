@@ -4,25 +4,32 @@ import { CONFIG } from "@/lib/config";
 import { IconeSeta } from "./Icones";
 
 /**
+ * Distância do sensor até a água (em cm) em que o nível muda: a mesma do painel do sensor do app
+ * (app/src/sensor/nivel.js, LIMITES_PADRAO). O sensor mede de 20 cm a 2000 cm, e por isso o
+ * crítico começa acima de 20. Quando a calibração na bancada sair (#55), troque só aqui: o
+ * desenho e o texto da seção usam estes números.
+ */
+const LIMITES_CM = { critico: 30, alerta: 45, atencao: 60 };
+
+/**
  * Bueiro em corte: a rua, a tampa, o sensor preso embaixo dela e a água. As três marcas na parede
- * são as distâncias em que o nível muda no painel do sensor (60, 45 e 30 cm; o sensor mede de
- * 20 cm a 2000 cm, e por isso o crítico começa acima de 20). O desenho é fixo, com a água em
- * 38 cm: nível alto.
+ * são os LIMITES_CM. O desenho é fixo, com a água entre o limite do crítico e o do alto: nível alto.
  */
 function BueiroEmCorte() {
   const SENSOR = 62;
   const FUNDO = 190;
   const yDe = (cm) => SENSOR + (Math.min(cm, 85) / 85) * (FUNDO - SENSOR);
-  const agua = yDe(38);
+  const medida = Math.round((LIMITES_CM.critico + LIMITES_CM.alerta) / 2);
+  const agua = yDe(medida);
   return (
     <svg className="ld-corte" viewBox="0 0 320 212" role="img"
-      aria-label="Desenho de um bueiro em corte: o sensor fica embaixo da tampa e mede 38 centímetros até a água, o que corresponde ao nível alto">
+      aria-label={`Desenho de um bueiro em corte: o sensor fica embaixo da tampa e mede ${medida} centímetros até a água, o que corresponde ao nível alto`}>
       <rect x="0" y="50" width="92" height="162" className="ld-corte-terra" />
       <rect x="228" y="50" width="92" height="162" className="ld-corte-terra" />
       <rect x="92" y="196" width="136" height="16" className="ld-corte-terra" />
       <rect x="92" y="50" width="136" height="146" className="ld-corte-oco" />
       <rect x="92" y={agua} width="136" height={196 - agua} className="ld-corte-agua" />
-      {[[4, 30, "crítico"], [3, 45, "alto"], [2, 60, "médio"]].map(([n, cm, nome]) => (
+      {[[4, LIMITES_CM.critico, "crítico"], [3, LIMITES_CM.alerta, "alto"], [2, LIMITES_CM.atencao, "médio"]].map(([n, cm, nome]) => (
         <g key={n}>
           <path d={`M92 ${yDe(cm)}h18`} style={{ stroke: `var(--r${n})` }} className="ld-corte-marca" />
           <text x="84" y={yDe(cm) + 4} textAnchor="end" className="ld-corte-letra">{nome}</text>
@@ -38,7 +45,7 @@ function BueiroEmCorte() {
       <text x="20" y="33" className="ld-corte-letra">rua</text>
       <text x="84" y="60" textAnchor="end" className="ld-corte-letra">sensor</text>
       <path d={`M160 ${SENSOR}V${agua}M153 ${agua}h14`} className="ld-corte-regua" />
-      <text x="238" y={(SENSOR + agua) / 2 + 5} className="ld-corte-letra ld-corte-medida">38 cm</text>
+      <text x="238" y={(SENSOR + agua) / 2 + 5} className="ld-corte-letra ld-corte-medida">{medida} cm</text>
     </svg>
   );
 }
@@ -58,7 +65,10 @@ export default function Sensor() {
           </p>
           <dl className="ld-ficha">
             <div><dt>O que mede</dt><dd>A distância do sensor até a água, em centímetros. Só água: ele não mede lixo.</dd></div>
-            <div><dt>Como vira nível</dt><dd>Quanto menor a distância, mais cheio o bueiro: médio a partir de 60 cm, alto a partir de 45 e crítico a partir de 30. O sensor mede de 20 cm a 20 m.</dd></div>
+            <div><dt>Como vira nível</dt><dd>
+              Quanto menor a distância, mais cheio o bueiro: médio a partir de {LIMITES_CM.atencao} cm, alto a partir
+              de {LIMITES_CM.alerta} e crítico a partir de {LIMITES_CM.critico}. O sensor mede de 20 cm a 20 m.
+            </dd></div>
             <div><dt>O que falta</dt><dd>Ligar a leitura ao mapa. No app, por enquanto, as leituras dos bueiros são de demonstração.</dd></div>
           </dl>
           <a className="ld-seta" href={CONFIG.urlSensor}>Ver o painel do sensor<IconeSeta pequeno /></a>

@@ -41,7 +41,7 @@ export default function Projeto() {
             <h3>Simulado, por enquanto</h3>
             <Lista itens={SIMULADO} />
             <p className="ld-codigo">
-              O código do app e o do servidor são abertos: <a href={CONFIG.repositorio}>github.com/Sima-sp</a>.
+              O código de todas as partes é aberto: <a href={CONFIG.repositorio}>{CONFIG.repositorio.replace(/^https?:\/\//, "")}</a>.
             </p>
           </div>
         </div>

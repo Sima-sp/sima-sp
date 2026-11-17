@@ -10,6 +10,10 @@ const FATOS = [
     texto: "alagamentos registrados foram avisados com nível alto, em média 2,4 horas antes. A conta foi feita em anos que a IA não tinha visto no treino.",
   },
   {
+    titulo: "Crítico é medido, não previsto",
+    texto: "A chance vira nível: médio a partir de 0,4% e alto a partir de 1,2%. A previsão vai até alto. O nível crítico só aparece quando o sensor mede o bueiro cheio: aí não é chance, é o que está acontecendo.",
+  },
+  {
     titulo: "Ela erra para o lado da cautela",
     texto: "A maioria dos avisos de nível alto não é seguida de alagamento registrado. Leia o nível como “risco acima do normal”, não como certeza.",
   },
@@ -19,7 +23,7 @@ const FATOS = [
   },
   {
     titulo: "O peso do sensor ainda é uma regra",
-    texto: "O peso da chuva e do lugar a IA aprendeu com os registros. O da água medida foi definido pelo grupo: faltam leituras de verdade para ela aprender sozinha.",
+    texto: "O peso da chuva e do lugar a IA aprendeu com os registros. O da água medida foi definido pelo grupo: faltam leituras de verdade para ela aprender sozinha. Os 31 de cada 100 acima são da IA sem o sensor.",
   },
   {
     titulo: "O que ela não vê",
