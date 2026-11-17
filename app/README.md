@@ -597,6 +597,37 @@ por perto e para mandar relatos.
 
 Os testes (`src/conta/conta.test.js`) sobem um servidor de mentira que responde como o backend.
 
+### Alertas do sensor e notificação no celular
+
+**Alerta é medição.** O backend cria um alerta quando a leitura de um bueiro chega ao nível
+crítico e o encerra quando a água baixa. A previsão da IA não gera alerta.
+
+- O app lê `GET /alertas?status=ATIVO` junto com `/previsoes` (`src/dados/alertas.js`). Se só essa
+  rota falhar, o mapa continua e ficam os alertas que já estavam na tela.
+- Onde aparece: um aviso sobre o mapa ("1 bueiro em alerta agora"), a seção **Alertas do sensor**
+  no topo da tela Avisos, um anel tracejado em volta da tampa, e a linha "Em alerta desde as
+  14:20 · medido pelo sensor" no cartão e na tela do bueiro.
+- Na demonstração não há servidor: cada bueiro transbordando conta como um alerta.
+
+**Notificação (Web Push)**, em `src/conta/push.js` e no fim de `public/sw.js`:
+
+1. No Perfil, a pessoa liga "Avisos de alerta perto de mim". Só nesse toque o navegador pede a
+   permissão; nunca ao abrir o app.
+2. O app pega `GET /push/chave-publica`, inscreve o aparelho e manda a inscrição para
+   `POST /usuarios/me/push`. O id devolvido fica em `sima.push`, para remover depois.
+3. O backend avisa quem tem conta ativa, avisos ligados e localização de referência a até 1 km do
+   bueiro. O service worker mostra a notificação; tocar nela abre o app naquele bueiro.
+4. Desligar (ou sair da conta) remove a inscrição do backend e do navegador.
+
+Limites, que o Perfil explica quando é o caso:
+
+| Situação | O que a tela diz |
+|---|---|
+| iPhone ou iPad fora da tela de início | Como instalar (Compartilhar → Adicionar à Tela de Início); precisa do iOS 16.4 ou mais novo |
+| Permissão negada no navegador | Como reativar nas configurações do site |
+| Navegador sem push | Os alertas continuam aparecendo no app |
+| `npm run dev` ou endereço sem https | A notificação só funciona no app publicado: o service worker não existe em desenvolvimento |
+
 ### O que acontece quando o backend não responde
 
 O app **não** troca para os dados de demonstração: num app de risco, mostrar dados inventados
@@ -624,6 +655,7 @@ src/
     pontosCapital.js       os 136 pontos da capital usados na demonstração
     ruasDosBueiros.js      GERADO: o trecho de rua em volta de cada ponto (npm run ruas)
     bairros.js             resumo por bairro
+    alertas.js             alertas do sensor (medição): conversão do backend, os da demonstração e os textos (e o teste)
     regioes.js             aviso por região: cobertura mínima, limiares e as frases
     simulador.js           simulador da tela da IA: lugares, cenários e explicações
     vitrine.js             modo vitrine: as cenas do passeio e a escolha do bueiro visitado (e o teste)
@@ -636,6 +668,7 @@ src/
     sessao.js              a sessão guardada no aparelho (token, validade, usuário) e quem é avisado quando ela muda
     conta.js               entrar, cadastrar, sair, mudar o perfil, apagar a conta; conferência do formulário
     ContaContexto.jsx      a conta para as telas (useConta)
+    push.js                notificação no celular: permissão, inscrição, situação do aparelho e os textos (e o teste)
     conta.test.js          testes da sessão e da conta, com um servidor de mentira
   sensor/                  o painel do sensor (página separada: sensor.html)
     pagina.jsx             entrada da página: fontes, estilos e o Painel
@@ -741,7 +774,6 @@ hospedagem estática sem configurar o servidor.
 | Instruções por voz na viagem | Decisão do grupo; o serviço de rotas já devolve as frases em português |
 | Rotas a pé ou de transporte | Fora do escopo: o grupo decidiu por rotas só de carro |
 | Reportar problema | Domínio de Ocorrência no backend |
-| Notificação dos avisos no celular | Alerta a partir de previsão no backend; notificações no aparelho |
 | Aviso por região vindo do servidor | Formato de `GET /previsoes/regioes` (hoje o app calcula com a mesma regra) |
 | Trecho de rua para sensores fora dos 136 pontos conhecidos | Rodar `npm run ruas` com a posição deles (os de `docs/sensores-capital.sql` já têm trecho) |
 | Mostrar as duas chances (antes e depois do sensor) também nos dados reais | O backend mandar `probabilidadeModelo` em `/previsoes`; o app já lê |

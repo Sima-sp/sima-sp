@@ -9,6 +9,7 @@ import { corNivel, rotuloNivel } from "../dados/niveis";
 import {
   centimetros, haQuanto, horaCurta, milimetros, motivoSemLeitura, nivelVisivel, porcento, statusAgora, textoProbabilidade, tituloDoPonto,
 } from "../dados/modelo";
+import { textoDoAlerta } from "../dados/alertas";
 import { SeloNivel } from "../componentes/Tampa";
 import { BotaoVoltar, Tela } from "../componentes/Tela";
 import { IconeMais, IconeMapa, IconeRota, IconeSeta } from "../componentes/Icones";
@@ -90,6 +91,7 @@ export default function Bueiro() {
         <h2 className="h2" style={{ fontSize: 21 }}>Sobre este ponto</h2>
         <div className="grp" style={{ margin: "14px 0 0" }}>
           <div className="bu-fact"><span>Bairro</span><b>{ponto.bairro}</b></div>
+          {ponto.alerta ? <div className="bu-fact"><span>Alerta do sensor</span><b>{textoDoAlerta(ponto.alerta).replace(" · medido pelo sensor", "")}</b></div> : null}
           <div className="bu-fact"><span>Código do sensor</span><b className="mono">{ponto.codigo}</b></div>
           {/* O que o sensor mede de verdade é a distância até a água; o nível em % é a conta do servidor. */}
           {temLeitura && ponto.distanciaCm !== null && ponto.distanciaCm !== undefined ? (

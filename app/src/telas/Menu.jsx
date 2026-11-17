@@ -59,7 +59,7 @@ export default function Menu() {
         {atalho("Mapa", "/", <IconeMapa pequeno />)}
         {atalho("Bairros", "/bairros", <IconeBairros pequeno />)}
         {atalho("Rotas", "/rotas", <IconeRota pequeno />)}
-        {atalho("Avisos por região", "/alertas", <IconeSino pequeno />)}
+        {atalho("Avisos e alertas", "/alertas", <IconeSino pequeno />)}
         {atalho("Reportar problema", "/reportar", <IconeMais pequeno />, true)}
       </div>
 
