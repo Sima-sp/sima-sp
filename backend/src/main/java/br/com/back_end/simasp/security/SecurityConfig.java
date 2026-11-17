@@ -194,6 +194,13 @@ public class SecurityConfig {
                                 "/leituras/**"
                         ).authenticated()
 
+                        // Alertas ativos para o app: públicos para leitura (#13).
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/alertas",
+                                "/alertas/**"
+                        ).permitAll()
+
                         .requestMatchers(
                                 "/alertas/**"
                         ).authenticated()
