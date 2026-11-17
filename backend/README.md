@@ -24,6 +24,39 @@ Recebe os sensores, guarda leituras e previsões e serve o app e o site.
    não existir.
 3. `./mvnw spring-boot:run` (porta 8080).
 
+## Rodar com Docker
+
+```
+docker build -t sima-backend .
+docker run --env-file .env -p 8080:8080 sima-backend
+```
+
+A imagem roda com o perfil `prod`, em `America/Sao_Paulo` e com um usuário sem privilégio. O
+banco precisa estar acessível a partir do contêiner: num MySQL do próprio computador, troque
+`localhost` por `host.docker.internal` no `DB_URL`. O Docker Compose com MySQL, backend e serviço
+de IA fica na pasta [`infra/`](../infra) (#60).
+
+## Variáveis de ambiente
+
+| Variável | Obrigatória | Padrão | Para quê |
+|---|---|---|---|
+| `DB_URL` | sim | — | JDBC do MySQL, com `serverTimezone=America/Sao_Paulo` |
+| `DB_USERNAME`, `DB_PASSWORD` | sim | — | Usuário do banco |
+| `JWT_SECRET` | sim | — | Chave do token, em Base64, 32 bytes ou mais (`openssl rand -base64 48`) |
+| `CORS_ALLOWED_ORIGINS` | não | dev: `http://localhost:5173,https://sima-sp.github.io`; prod: `https://sima-sp.github.io` | Origens que podem chamar a API pelo navegador, separadas por vírgula |
+| `IA_HABILITADA` | não | `true` | Desligada, o backend não chama o serviço de IA |
+| `IA_URL` | não | `http://localhost:5000` | Endereço do serviço de IA |
+| `IA_DEMONSTRACAO` | não | `false` | Permite o modo de demonstração (chuva simulada) |
+| `ADMIN_EMAIL`, `ADMIN_SENHA` | não | vazio | Primeiro administrador, criado ao subir se ainda não existir |
+| `SPRING_PROFILES_ACTIVE` | não | `dev` (`prod` na imagem) | `dev` mostra o SQL no log |
+
+## Pontos da capital como sensores
+
+`docs/sensores-capital.sql` cadastra os 136 pontos monitorados da capital (os do modelo de IA)
+como sensores, para o mapa inteiro mostrar a previsão real, e marca o sensor de bancada como
+`bueiro_01`. Não é migração: rode à mão no banco de demonstração ou no hospedado
+(`mysql -u root -p simasp_db < docs/sensores-capital.sql`). Pode rodar de novo sem duplicar.
+
 ## Acesso
 
 | Rota | Quem |
