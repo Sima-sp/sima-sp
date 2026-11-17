@@ -33,6 +33,11 @@ public record CriarUsuarioRequest(
         BigDecimal longitude,
 
         @NotNull(message = "A permissão de alerta deve ser inserida.")
-        Boolean permissaoAlerta
+        Boolean permissaoAlerta,
+
+        /** A pessoa leu para que cada dado serve (a página fica no app). Obrigatório (#19). */
+        @NotNull(message = "Confirme que leu como os seus dados são usados.")
+        @AssertTrue(message = "Confirme que leu como os seus dados são usados.")
+        Boolean aceiteTermos
 ) {
 }

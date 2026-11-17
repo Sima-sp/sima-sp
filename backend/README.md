@@ -69,12 +69,24 @@ o Swagger serve de tela do admin (cadastrar sensor, gerar a chave, resolver aler
 | `POST /leituras` | O servidor do sensor, com a chave do sensor em `X-Sensor-Chave` |
 | `GET /previsoes/**`, `GET /sensores/**`, `GET /alertas` | Qualquer um (o mapa do app é público) |
 | `GET /swagger-ui.html`, `GET /v3/api-docs` | Qualquer um |
-| `GET` e `PATCH /usuarios/me`, `PUT /usuarios/me/senha` | Quem entrou (`Authorization: Bearer <token>`) |
+| `GET`, `PATCH` e `DELETE /usuarios/me`, `PUT /usuarios/me/senha` | Quem entrou (`Authorization: Bearer <token>`) |
 | `/admin/**`, `POST /previsoes/**` | Perfil ADMIN |
 | Qualquer outra | Ninguém (403) |
 
 O login devolve `{ token, tipo: "Bearer", expiraEmSegundos }`; o token traz `sub` (e-mail),
 `usuarioId` e `perfil`. Os dados do usuário vêm de `GET /usuarios/me`. Sair = o app apaga o token.
+
+Privacidade e abuso (#19):
+
+- O cadastro exige `"aceiteTermos": true` (a pessoa leu para que cada dado serve); a data fica guardada.
+- A localização de referência é guardada com 3 casas decimais (uns 100 m), no cadastro e no `PATCH`.
+- Toda requisição com token confere se a conta ainda existe e está ativa: desativada pelo admin
+  ou excluída, o token para de valer na hora (401), sem esperar vencer.
+- `DELETE /usuarios/me` apaga a conta (o admin não se apaga por aqui).
+- Login: 5 senhas erradas para o mesmo e-mail, ou 20 do mesmo IP, em 15 minutos → `429` com
+  `Retry-After` (segundos). Um login certo zera o contador do e-mail. Ajuste em
+  `auth.tentativas.*`. Em produção o IP vem do proxy (`server.forward-headers-strategy=framework`).
+- Telefone: continua obrigatório e único no cadastro; se ele sai fica para o grupo decidir (#19).
 
 Os nomes seguem uma regra só (#20): substantivo no caminho e o verbo HTTP dizendo a ação.
 
@@ -83,6 +95,7 @@ Os nomes seguem uma regra só (#20): substantivo no caminho e o verbo HTTP dizen
 | Criar conta | `POST /usuarios` |
 | Ver e mudar o perfil (só os campos enviados) | `GET` e `PATCH /usuarios/me` |
 | Trocar a senha | `PUT /usuarios/me/senha` |
+| Excluir a própria conta | `DELETE /usuarios/me` |
 | Sensores (filtros opcionais) | `GET /sensores?latitude=&longitude=&raio=&status=` |
 | Um sensor; os de um bairro | `GET /sensores/{id}`; `GET /sensores/vizinhanca/{nome}` |
 | Cadastrar sensor | `POST /admin/sensores` |

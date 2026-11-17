@@ -3,6 +3,7 @@ package br.com.back_end.simasp.auth.controller;
 import br.com.back_end.simasp.auth.dto.LoginRequest;
 import br.com.back_end.simasp.auth.dto.LoginResponse;
 import br.com.back_end.simasp.auth.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +21,9 @@ public class AuthController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request)
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest http)
     {
-        LoginResponse response = service.login(request);
+        LoginResponse response = service.login(request, http.getRemoteAddr());
 
         return ResponseEntity.ok(response);
     }
