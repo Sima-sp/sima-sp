@@ -50,6 +50,9 @@ de IA fica na pasta [`infra/`](../infra) (#60).
 | `ADMIN_EMAIL`, `ADMIN_SENHA` | não | vazio | Primeiro administrador, criado ao subir se ainda não existir |
 | `FOTOS_DIR` | não | `./dados/fotos` (`/dados/fotos` no contêiner) | Pasta das fotos dos relatos; em produção, um volume |
 | `OCORRENCIA_VALIDADE` | não | `PT24H` | Quanto tempo um relato aprovado fica no mapa |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | para o push | vazio | Chaves do Web Push (base64url) |
+| `VAPID_CONTATO` | não | `mailto:contato@simasp.local` | Contato enviado aos serviços de push |
+| `PUSH_RAIO_METROS` | não | `1000` | Distância máxima do bueiro para receber o aviso |
 | `SPRING_PROFILES_ACTIVE` | não | `dev` (`prod` na imagem) | `dev` mostra o SQL no log |
 
 ## Pontos da capital como sensores
@@ -70,7 +73,7 @@ o Swagger serve de tela do admin (cadastrar sensor, gerar a chave, resolver aler
 | `POST /auth/login`, `POST /usuarios` (criar conta) | Qualquer um |
 | `POST /leituras` | O servidor do sensor, com a chave do sensor em `X-Sensor-Chave` |
 | `GET /previsoes/**`, `GET /sensores/**`, `GET /alertas`, `GET /ocorrencias` | Qualquer um (o mapa do app é público) |
-| `GET /swagger-ui.html`, `GET /v3/api-docs` | Qualquer um |
+| `GET /swagger-ui.html`, `GET /v3/api-docs`, `GET /push/chave-publica` | Qualquer um |
 | `GET`, `PATCH` e `DELETE /usuarios/me`, `PUT /usuarios/me/senha`, `POST /ocorrencias` | Quem entrou (`Authorization: Bearer <token>`) |
 | `/admin/**`, `POST /previsoes/**` | Perfil ADMIN |
 | Qualquer outra | Ninguém (403) |
@@ -103,13 +106,30 @@ Os nomes seguem uma regra só (#20): substantivo no caminho e o verbo HTTP dizen
 | Cadastrar sensor | `POST /admin/sensores` |
 | Mudar status, local, código, profundidade… (só os campos enviados) | `PATCH /admin/sensores/{id}` |
 | Gerar ou trocar a chave do sensor | `POST /admin/sensores/{id}/chave` |
-| Usuários perto de um ponto | `GET /admin/usuarios?latitude=&longitude=&raio=` |
 | Ativar ou desativar conta | `PATCH /admin/usuarios/{email}` com `{ "ativo": false }` |
 | Alertas | `GET /alertas?status=ATIVO`; `GET /admin/alertas`; `PATCH /admin/alertas/{id}/resolver` |
 | Relatar um problema (multipart) | `POST /ocorrencias` |
 | Relatos no mapa; foto | `GET /ocorrencias`; `GET /ocorrencias/{id}/foto` |
 | Meus relatos | `GET /usuarios/me/ocorrencias` |
+| Chave para o app se inscrever no push | `GET /push/chave-publica` |
+| Inscrever ou remover o aparelho | `POST /usuarios/me/push`; `DELETE /usuarios/me/push/{id}` |
 | Fila do admin; aprovar ou recusar; foto | `GET /admin/ocorrencias?situacao=PENDENTE`; `PATCH /admin/ocorrencias/{id}`; `GET /admin/ocorrencias/{id}/foto` |
+
+## Notificação no celular (#14)
+
+- Web Push com chaves VAPID, sem Firebase. Gere as chaves uma vez (`npx web-push generate-vapid-keys`)
+  e passe em `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY`. Sem elas, o push fica desligado e
+  `GET /push/chave-publica` responde `503`.
+- O app pega a chave pública, chama `pushManager.subscribe(...)` e manda o resultado de
+  `subscription.toJSON()` para `POST /usuarios/me/push` como veio.
+- Alerta criado → avisa quem tem conta ativa, `permissaoAlerta` ligada e localização de referência
+  a até `PUSH_RAIO_METROS` (padrão 1000 m) do bueiro. Uma vez por alerta e pessoa (`TBL_ENVIO_PUSH`).
+- Inscrição que o serviço de push diz não existir mais (404/410) fica inativa.
+- Só aceita endereços dos serviços de push dos navegadores (Google, Mozilla, Apple, Microsoft).
+- A cifra (RFC 8291) é feita só com o JDK; o teste confere com o exemplo da própria RFC.
+- Limites: sem https o navegador não deixa inscrever; no iPhone só com o app instalado na tela
+  de início (iOS 16.4 ou mais novo).
+- A busca de usuários por proximidade saiu da API (`GET /admin/usuarios`): agora é só por dentro.
 
 ## Relatos do cidadão (#15)
 

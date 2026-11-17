@@ -276,7 +276,7 @@ class AutenticacaoIntegracaoTest {
 
     @Test
     void administradorInicialEntraNoAdminECidadaoNao() throws Exception {
-        String caminho = "/admin/usuarios?longitude=-46.633308&latitude=-23.550520&raio=50000";
+        String caminho = "/admin/alertas";
 
         HttpResponse<String> admin = login("admin.teste@simasp.local", "senha-do-admin-123");
         assertThat(admin.statusCode()).as(admin.body()).isEqualTo(200);
