@@ -1,5 +1,6 @@
 package br.com.back_end.simasp.security;
 
+import br.com.back_end.simasp.usuario.repository.UsuarioRepository;
 import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -11,6 +12,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -77,7 +79,8 @@ public class SecurityConfig {
     public JwtDecoder jwtDecoder(
             SecretKey secretKey,
             @Value("${security.jwt.issuer}")
-            String emissor
+            String emissor,
+            UsuarioRepository usuarioRepository
     ) {
         NimbusJwtDecoder decoder =
                 NimbusJwtDecoder
@@ -85,9 +88,11 @@ public class SecurityConfig {
                         .macAlgorithm(MacAlgorithm.HS256)
                         .build();
 
+        // Além de assinatura, emissor e validade: a conta ainda existe e está ativa (#19).
         decoder.setJwtValidator(
-                JwtValidators.createDefaultWithIssuer(
-                        emissor
+                new DelegatingOAuth2TokenValidator<>(
+                        JwtValidators.createDefaultWithIssuer(emissor),
+                        new ContaAtivaValidator(usuarioRepository)
                 )
         );
 

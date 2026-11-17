@@ -18,6 +18,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     boolean existsByTelefone(String telefone);
     Optional<Usuario> findByEmailIgnoreCase(String email);
 
+    /** A conta existe e está ativa? (conferido em toda requisição com token, #19) */
+    boolean existsByIdAndAtivoTrue(Long id);
+
     // Busca usuarios filtrando pelos ativos e por uma distância máxima em metros.
     @Query(value = "SELECT * FROM TBL_USUARIO u WHERE ST_Distance_Sphere(POINT(u.NR_LONGITUDE, u.NR_LATITUDE), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND u.FL_ATIVO = TRUE",
             countQuery = "SELECT COUNT(*) FROM TBL_USUARIO u WHERE ST_Distance_Sphere( POINT(u.NR_LONGITUDE, u.NR_LATITUDE), POINT(:longitude_usuario, :latitude_usuario)) <= :distancia_metros AND u.FL_ATIVO = TRUE", nativeQuery = true)
