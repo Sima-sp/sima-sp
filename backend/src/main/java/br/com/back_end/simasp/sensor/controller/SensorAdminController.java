@@ -1,6 +1,8 @@
 package br.com.back_end.simasp.sensor.controller;
 
+import br.com.back_end.simasp.sensor.dto.AlterarBancadaSensor;
 import br.com.back_end.simasp.sensor.dto.AlterarLocalizacaoSensor;
+import br.com.back_end.simasp.sensor.dto.ChaveSensorResponse;
 import br.com.back_end.simasp.sensor.dto.AlterarStatusSensor;
 import br.com.back_end.simasp.sensor.dto.SensorRequest;
 import br.com.back_end.simasp.sensor.dto.SensorResponse;
@@ -78,4 +80,18 @@ public class SensorAdminController {
         return ResponseEntity.noContent().build();
     }
 
+
+    /** Código, profundidade e distância de cheio: o que transforma a distância em nível (%). */
+    @PatchMapping("/modificar-sensor/{id}/bancada")
+    public ResponseEntity<SensorResponse> atualizarBancada(@PathVariable Long id, @Valid @RequestBody AlterarBancadaSensor request)
+    {
+        return ResponseEntity.ok(serviceAdmin.atualizarBancada(id, request));
+    }
+
+    /** Gera (ou troca) a chave do sensor. A chave só aparece nesta resposta. */
+    @PostMapping("/{id}/chave")
+    public ResponseEntity<ChaveSensorResponse> gerarChave(@PathVariable Long id)
+    {
+        return ResponseEntity.ok(serviceAdmin.gerarChave(id));
+    }
 }

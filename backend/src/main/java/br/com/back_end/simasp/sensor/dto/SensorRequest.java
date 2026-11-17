@@ -25,9 +25,19 @@ public record SensorRequest(
 
         @NotNull(message = "A data deve ser inserida.")
         @PastOrPresent(message = "A data de instalação deve estar na data presente ou passada.")
-        LocalDateTime dataInstalacao
+        LocalDateTime dataInstalacao,
 
+        /** Opcional: o "device" do firmware (ex.: bueiro_01), para receber leituras (#10). */
+        @Size(max = 40, message = "O código tem no máximo 40 caracteres.")
+        @Pattern(regexp = "[A-Za-z0-9_-]+", message = "O código só pode ter letras, números, _ e -.")
+        String codigo,
 
+        /** Opcional: distância do sensor até o fundo, em cm (água em 0 %). */
+        @Positive(message = "A profundidade deve ser maior que zero.")
+        Double profundidadeCm,
 
+        /** Opcional: distância do sensor até a água com o bueiro cheio, em cm (água em 100 %). */
+        @PositiveOrZero(message = "A distância de cheio não pode ser negativa.")
+        Double distanciaCheioCm
 ) {
 }

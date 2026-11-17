@@ -1,5 +1,7 @@
 package br.com.back_end.simasp.previsao.mapper;
 
+import br.com.back_end.simasp.config.FusoHorario;
+import br.com.back_end.simasp.leitura.entity.Leitura;
 import br.com.back_end.simasp.leitura.enums.NivelRiscoEnum;
 import br.com.back_end.simasp.previsao.client.dto.PrevisaoIaResponse;
 import br.com.back_end.simasp.previsao.dto.PrevisaoResponse;
@@ -12,10 +14,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,9 +31,15 @@ import java.util.List;
 public class PrevisaoMapper {
 
     private static final Logger log = LoggerFactory.getLogger(PrevisaoMapper.class);
-    private static final ZoneId FUSO_LOCAL = ZoneId.of("America/Sao_Paulo");
     private static final String SEPARADOR_MOTIVOS = ";";
     private static final String FONTE_CHUVA_SIMULADA = "INFORMADA";
+
+    /** Relógio de São Paulo (#9): decide se a previsão ainda vale, mesmo num servidor em UTC. */
+    private final Clock relogio;
+
+    public PrevisaoMapper(Clock relogio) {
+        this.relogio = relogio;
+    }
 
     /** Resposta do serviço de IA → entidade pronta para salvar. */
     public Previsao paraEntidade(PrevisaoIaResponse resposta, Sensor sensor, Duration validadePadrao) {
@@ -43,7 +51,7 @@ public class PrevisaoMapper {
         previsao.setJanelaHoras(resposta.janelaHoras() == null ? 3 : resposta.janelaHoras());
 
         LocalDateTime geradaEm = paraLocal(resposta.geradaEm());
-        previsao.setGeradaEm(geradaEm == null ? LocalDateTime.now() : geradaEm);
+        previsao.setGeradaEm(geradaEm == null ? LocalDateTime.now(relogio) : geradaEm);
         LocalDateTime validaAte = paraLocal(resposta.validaAte());
         previsao.setValidaAte(validaAte == null ? previsao.getGeradaEm().plus(validadePadrao) : validaAte);
         previsao.setHoraReferencia(paraLocal(resposta.horaReferencia()));
@@ -64,6 +72,11 @@ public class PrevisaoMapper {
 
     /** Entidade → DTO do app, com o {@code status} calculado na hora da consulta. */
     public PrevisaoResponse paraResposta(Previsao previsao) {
+        return paraResposta(previsao, null);
+    }
+
+    /** Entidade + última leitura do sensor (pode ser nula) → DTO do app (#11). */
+    public PrevisaoResponse paraResposta(Previsao previsao, Leitura leitura) {
         Sensor sensor = previsao.getSensor();
         return new PrevisaoResponse(
                 sensor == null ? null : sensor.getId(),
@@ -75,9 +88,9 @@ public class PrevisaoMapper {
                 previsao.getNivelRisco(),
                 previsao.getNivelRiscoModelo(),
                 previsao.getJanelaHoras(),
-                previsao.getGeradaEm(),
-                previsao.getValidaAte(),
-                previsao.getHoraReferencia(),
+                FusoHorario.comFuso(previsao.getGeradaEm()),
+                FusoHorario.comFuso(previsao.getValidaAte()),
+                FusoHorario.comFuso(previsao.getHoraReferencia()),
                 previsao.getMedicaoTransbordando(),
                 previsao.getAjusteSensorAplicado(),
                 previsao.getSemLeituraSensor(),
@@ -86,16 +99,31 @@ public class PrevisaoMapper {
                 previsao.getChuvaPrevista3hMm(),
                 previsao.getOrigem(),
                 previsao.getModeloVersao(),
-                simulada(previsao.getFonteChuva()));
+                simulada(previsao.getFonteChuva()),
+                leitura == null ? null : leitura.getNivelAgua(),
+                leitura == null ? null : leitura.getDistanciaCm(),
+                leitura == null ? null : FusoHorario.comFuso(leitura.getDataLeitura()),
+                sensor == null ? null : sensor.getStatus(),
+                sensor == null ? null : sensor.getCodigo());
     }
 
     /** Sensor sem nenhuma previsão: o mapa mostra o ponto assim mesmo. */
     public PrevisaoResponse semPrevisao(Sensor sensor) {
+        return semPrevisao(sensor, null);
+    }
+
+    /** Sensor sem previsão, com a última leitura (pode ser nula). */
+    public PrevisaoResponse semPrevisao(Sensor sensor, Leitura leitura) {
         return new PrevisaoResponse(
                 sensor.getId(), paraDouble(sensor.getLatitude()), paraDouble(sensor.getLongitude()),
                 sensor.getVizinhanca(), StatusPrevisaoEnum.SEM_PREVISAO,
                 null, null, null, null, null, null, null,
-                false, false, true, List.of(), null, null, null, null, false);
+                false, false, true, List.of(), null, null, null, null, false,
+                leitura == null ? null : leitura.getNivelAgua(),
+                leitura == null ? null : leitura.getDistanciaCm(),
+                leitura == null ? null : FusoHorario.comFuso(leitura.getDataLeitura()),
+                sensor.getStatus(),
+                sensor.getCodigo());
     }
 
     /**
@@ -107,7 +135,7 @@ public class PrevisaoMapper {
     }
 
     public StatusPrevisaoEnum statusDe(Previsao previsao) {
-        if (previsao.getValidaAte() == null || previsao.getValidaAte().isBefore(LocalDateTime.now())) {
+        if (previsao.getValidaAte() == null || previsao.getValidaAte().isBefore(LocalDateTime.now(relogio))) {
             return StatusPrevisaoEnum.DESATUALIZADA;
         }
         return StatusPrevisaoEnum.VALIDA;
@@ -139,7 +167,7 @@ public class PrevisaoMapper {
     }
 
     private LocalDateTime paraLocal(OffsetDateTime instante) {
-        return instante == null ? null : instante.atZoneSameInstant(FUSO_LOCAL).toLocalDateTime();
+        return FusoHorario.paraLocal(instante);
     }
 
     private Double paraDouble(BigDecimal valor) {

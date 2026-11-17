@@ -4,7 +4,9 @@ import br.com.back_end.simasp.leitura.enums.NivelRiscoEnum;
 import br.com.back_end.simasp.previsao.enums.OrigemPrevisaoEnum;
 import br.com.back_end.simasp.previsao.enums.StatusPrevisaoEnum;
 
-import java.time.LocalDateTime;
+import br.com.back_end.simasp.sensor.enums.StatusSensor;
+
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -17,6 +19,13 @@ import java.util.List;
  *
  * <p>{@code simulada = true} indica previsão feita com chuva de um cenário do modo de
  * demonstração, não com a chuva real. O app deve avisar isso na tela.</p>
+ *
+ * <p>As datas vão com o fuso ({@code 2026-11-16T14:20:00-03:00}, #9).</p>
+ *
+ * <p>Os cinco últimos campos são do sensor e da última leitura dele (#11). A leitura vai mesmo
+ * que seja velha: o app decide o que mostrar pela {@code dataLeitura}. Sem leitura (ou sem
+ * profundidade cadastrada), {@code nivelAgua}, {@code distanciaCm} e {@code dataLeitura} vêm
+ * nulos; {@code statusSensor} vem sempre.</p>
  */
 public record PrevisaoResponse(
         Long sensorId,
@@ -28,9 +37,9 @@ public record PrevisaoResponse(
         NivelRiscoEnum nivelRisco,
         NivelRiscoEnum nivelRiscoModelo,
         Integer janelaHoras,
-        LocalDateTime geradaEm,
-        LocalDateTime validaAte,
-        LocalDateTime horaReferencia,
+        OffsetDateTime geradaEm,
+        OffsetDateTime validaAte,
+        OffsetDateTime horaReferencia,
         Boolean medicaoTransbordando,
         Boolean ajusteSensorAplicado,
         Boolean semLeituraSensor,
@@ -39,6 +48,11 @@ public record PrevisaoResponse(
         Double chuvaPrevista3hMm,
         OrigemPrevisaoEnum origem,
         String modeloVersao,
-        Boolean simulada
+        Boolean simulada,
+        Double nivelAgua,
+        Double distanciaCm,
+        OffsetDateTime dataLeitura,
+        StatusSensor statusSensor,
+        String codigo
 ) {
 }
