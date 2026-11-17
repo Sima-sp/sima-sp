@@ -6,6 +6,7 @@ import AppPorDentro from "@/components/landing/AppPorDentro";
 import Ia from "@/components/landing/Ia";
 import Sensor from "@/components/landing/Sensor";
 import Projeto from "@/components/landing/Projeto";
+import Equipe from "@/components/landing/Equipe";
 import ChamadaFinal from "@/components/landing/ChamadaFinal";
 import Rodape from "@/components/landing/Rodape";
 import { DefinicoesSvg } from "@/components/landing/Icones";
@@ -22,6 +23,7 @@ export default function Pagina() {
         <Ia />
         <Sensor />
         <Projeto />
+        <Equipe />
         <ChamadaFinal />
       </main>
       <Rodape />

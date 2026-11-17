@@ -1,5 +1,8 @@
 // "É chance, não certeza": o quanto a IA acerta, dito com os números dos testes do modelo.
 // Os textos são os da tela "Como a IA funciona" do app, para a página e o app dizerem o mesmo.
+// "Crítico é só o bueiro cheio" (aqui) e os limites em cm da seção do sensor (Sensor.jsx) ainda
+// usam regras diferentes, como o próprio app. Quando #41 e #55 levarem os limites para % do
+// bueiro, revise as duas seções juntas.
 import { telaDoApp } from "@/lib/config";
 import { IconeSeta } from "./Icones";
 
@@ -8,6 +11,10 @@ const FATOS = [
     titulo: "31 de cada 100",
     destaque: true,
     texto: "alagamentos registrados foram avisados com nível alto, em média 2,4 horas antes. A conta foi feita em anos que a IA não tinha visto no treino.",
+  },
+  {
+    titulo: "Crítico é medido, não previsto",
+    texto: "A chance vira nível: médio a partir de 0,4% e alto a partir de 1,2%. A previsão vai até alto. O nível crítico só aparece quando o sensor mede o bueiro cheio: aí não é chance, é o que está acontecendo.",
   },
   {
     titulo: "Ela erra para o lado da cautela",
@@ -19,7 +26,7 @@ const FATOS = [
   },
   {
     titulo: "O peso do sensor ainda é uma regra",
-    texto: "O peso da chuva e do lugar a IA aprendeu com os registros. O da água medida foi definido pelo grupo: faltam leituras de verdade para ela aprender sozinha.",
+    texto: "O peso da chuva e do lugar a IA aprendeu com os registros. O da água medida foi definido pelo grupo: faltam leituras de verdade para ela aprender sozinha. Os 31 de cada 100 alagamentos avisados com nível alto são da IA sem o sensor.",
   },
   {
     titulo: "O que ela não vê",
