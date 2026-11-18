@@ -278,8 +278,8 @@ passo para gravar a placa e rodar o servidor.
 O **painel do sensor** mostra o protótipo do sensor funcionando, em tempo real: o nível da água
 num desenho do bueiro em corte, a distância medida e como aquele bueiro apareceria no mapa.
 
-**É uma página separada do app** (`sensor.html`, código em `src/sensor/`): não tem mapa nem
-previsão, só o IoT. No computador ocupa a tela inteira (o desenho de um lado, a leitura do
+**É uma página separada do app** (`sensor.html`, código em `src/sensor/`): não tem mapa; mostra
+o protótipo e, quando há backend, o que o SIMA recebeu e previu para ele. No computador ocupa a tela inteira (o desenho de um lado, a leitura do
 outro, e um botão "Tela cheia"); no celular vira uma coluna. No Menu do app, "Sensor ao vivo"
 abre essa página; o endereço antigo (`#/sensor`) também leva a ela.
 
@@ -301,27 +301,50 @@ painel ────────▶ GET  /api/leitura   a última leitura (ou nul
                  GET  /api/limites   { "zonaCega": 15, "critico": 20, "alerta": 30, "atencao": 45 }
 ```
 
-**Da distância ao nível** (`src/sensor/nivel.js`, com testes). Quanto menor a distância, mais
-cheio o bueiro. **O sensor mede de 20 cm a 2000 cm** (informado pelo grupo em 07/10/2026). Abaixo
-de 20 cm ele não mede com precisão (a "zona cega"), então o nível crítico começa acima disso: se
-começasse em 20, o sensor só chegaria nele já sem medir direito.
+**Da distância ao nível** (`src/sensor/nivel.js`, com testes). É **a mesma conta do backend**
+(`NivelDaAgua`, #10), para o painel, o mapa e o alerta darem o mesmo nível para a mesma água:
 
-| Distância até a água | Nível no painel (os nomes do mapa) |
+```
+água (%) = (profundidade − distância) ÷ (profundidade − distância de cheio) × 100, entre 0 e 100
+```
+
+| Água no bueiro | Nível (os nomes do mapa) |
 |---|---|
-| até 30 cm | Crítico (abaixo de 20 cm, com o aviso de que o sensor já não mede com precisão) |
-| até 45 cm | Alto |
-| até 60 cm | Médio |
-| acima de 60 cm, até 2000 cm | Baixo |
+| 100 % (cheio) | Crítico: transbordando, é o que cria o alerta no backend |
+| 80 % ou mais | Alto |
+| 50 % ou mais | Médio |
+| abaixo de 50 % | Baixo |
 
-Os três limites são do painel e **podem ser trocados em "Ajustes do sensor"**, porque a montagem
-da bancada muda (a altura do sensor, a profundidade do recipiente). O que é digitado vale na
-hora e fica guardado no aparelho; o painel só aceita limites em ordem, com o crítico acima de
-20 cm e o médio até 2000 cm. O desenho mostra o mínimo do sensor com uma linha tracejada.
+Os limites em % são os de `sensor.nivel.*` no backend. **As medidas do bueiro** (do sensor até o
+fundo e até onde conta como cheio) vêm:
 
-O servidor do sensor tem os limites dele, de antes de o alcance ser conhecido (crítico 20,
-alerta 30, atenção 45, em `GET /api/limites`). O painel **não os usa** para dar o nível; em
-Ajustes, ele avisa quando são diferentes, porque o painel antigo do servidor pode mostrar outro
-nível para a mesma medida. Até 06/10 o painel seguia os limites do servidor.
+1. **do backend**, quando o sensor de bancada (`bueiro_01`, ou `VITE_SENSOR_BANCADA`) está
+   cadastrado com elas (`GET /sensores/{id}`: `profundidadeCm`, `distanciaCheioCm`). O painel
+   mostra que vieram de lá; para trocar, mude o cadastro (`PATCH /admin/sensores/{id}`);
+2. **de "Ajustes do sensor"**, sem backend ou sem as medidas no cadastro. Ficam no aparelho.
+   O padrão é de exemplo (fundo a 60 cm, cheio a 25 cm), até a bancada ser medida (#55).
+
+**O sensor mede de 20 cm a 2000 cm** (informado pelo grupo em 07/10/2026). Abaixo de 20 cm ele
+não mede com precisão (a "zona cega"), por isso a distância de cheio não pode ficar abaixo de
+20 cm. O desenho mostra o mínimo do sensor com uma linha tracejada.
+
+O servidor do sensor e o LED do firmware **ainda classificam por centímetros**, com números
+próprios (o servidor: crítico 20, alerta 30, atenção 45, em `GET /api/limites`; o LED: 25 e 45).
+O painel não os usa; em Ajustes, diz que o nível que vale é o dele. Acertar os dois é da #55.
+
+**Tempo até transbordar.** Quando a água sobe de forma consistente, o painel diz "Transborda em
+cerca de 4 minutos, se continuar assim" e quantos cm por minuto ela sobe. A velocidade é a
+mediana das inclinações entre os pares de leituras dos últimos 2 minutos (Theil-Sen): um eco
+falso no meio não muda a conta. Só aparece com pelo menos 30 s de leituras, com a maioria dos
+pares subindo, a mais de 0,3 cm/min e faltando menos de uma hora. Parada, descendo, oscilando ou
+já cheia: não aparece nada. Não vale para a simulação (que é arrastada à mão).
+
+**No SIMA.** Com `VITE_API_URL`, o painel pergunta ao backend a cada 15 s o que ele tem do sensor
+de bancada (`src/sensor/sistema.js`: `GET /previsoes`, `GET /sensores/{id}` e `GET /alertas`) e
+mostra, em linhas separadas, o **medido** (a última leitura que o backend recebeu), o **alerta**,
+se houver, e o **previsto pela IA**. Sem backend ou com ele fora do ar, a seção some e o painel
+segue só com o servidor do sensor. Para o medido do SIMA andar junto com o do painel, o servidor
+do sensor precisa repassar as leituras ao backend (#54).
 
 Três cuidados da tela:
 
@@ -376,11 +399,11 @@ ao abrir, pergunta `GET /api/limites` ao próprio endereço; se a resposta for a
 esse endereço e conecta sem botão. (A resposta serve só para reconhecer o servidor.)
 
 **Simulação.** "Simular sem o sensor" põe um controle embaixo do desenho: arrastando, a água
-sobe e o nível muda, até 10 cm do sensor (dentro da zona cega, para dar para mostrá-la). A página avisa que é simulação. É a reserva se o Wi-Fi ou o protótipo
+sobe e o nível muda, do fundo do bueiro até 10 cm do sensor (dentro da zona cega, para dar para mostrá-la). A página avisa que é simulação. É a reserva se o Wi-Fi ou o protótipo
 falharem.
 
 **Ajustes do sensor** (botão no pé da página) mostra o endereço do servidor e o botão de
-desconectar, os três limites de cada nível (para trocar) e a última resposta crua do servidor.
+desconectar, as medidas do bueiro (para trocar, ou de onde vieram) e a última resposta crua do servidor.
 
 **O que foi conferido e o que não foi.** Conferido com uma cópia do servidor do grupo e leituras
 enviadas como o ESP32 enviaria: os quatro níveis, a leitura inválida, o sensor parado, o servidor
@@ -389,9 +412,12 @@ acesso (Chromium 141), e o arquivo único aberto do próprio servidor, sem nenhu
 Tamanhos conferidos: 1366×768, 1920×1080 e celular, nos dois temas. **Não conferido:** o ESP32 de verdade e o app publicado lendo de outro
 computador.
 
-**O que a tela não faz.** A leitura não vai para o backend do SIMA nem vira um bueiro do mapa:
-fica só nesta tela. O passo seguinte é o ESP32 (ou o servidor do sensor) enviar a leitura ao
-backend em Java, e o backend guardar a profundidade do bueiro para transformar distância em %.
+**O que a tela não faz.** O painel não manda a leitura para o backend: quem faz isso é o
+servidor do sensor (#54) ou o ESP32. O backend já recebe (`POST /leituras`) e já guarda a
+profundidade do bueiro para transformar distância em %.
+
+Em 18/11/2026 (#41) o painel passou dos limites em cm (crítico 30, alto 45, médio 60) para a
+regra em % do backend. Não conferido ainda com o ESP32 de verdade.
 
 **Histórico.** Uma primeira versão (06/10/2026, commit `47cb659`) lia o ESP32 pelo cabo USB e
 mostrava só "seco" ou "molhado", porque era o que se sabia do protótipo. Com o código do servidor
@@ -741,7 +767,8 @@ src/
   sensor/                  o painel do sensor (página separada: sensor.html)
     pagina.jsx             entrada da página: fontes, estilos e o Painel
     Painel.jsx             a página: desenho do bueiro, nível, medida, simulação e ajustes
-    nivel.js               a distância medida (cm) vira nível: limites, leitura inválida, mediana (e o teste)
+    nivel.js               a distância medida (cm) vira % e nível (a conta do backend), leitura inválida, mediana, tempo até transbordar (e o teste)
+    sistema.js             o que o backend diz do sensor de bancada: medido, alerta e previsto (e o teste)
     servidor.js            pergunta a leitura ao servidor do sensor (o Node do grupo do IoT) e trata a permissão do navegador
   rotas/
     planejar.js            a regra: caminho mais rápido, bueiros no caminho, desvio e os textos

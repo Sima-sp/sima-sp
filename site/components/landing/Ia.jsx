@@ -1,8 +1,7 @@
 // "É chance, não certeza": o quanto a IA acerta, dito com os números dos testes do modelo.
 // Os textos são os da tela "Como a IA funciona" do app, para a página e o app dizerem o mesmo.
-// "Crítico é só o bueiro cheio" (aqui) e os limites em cm da seção do sensor (Sensor.jsx) ainda
-// usam regras diferentes, como o próprio app. Quando #41 e #55 levarem os limites para % do
-// bueiro, revise as duas seções juntas.
+// "Crítico é só o bueiro cheio" (aqui) é a mesma regra da seção do sensor (Sensor.jsx): o nível
+// medido sai da % de água no bueiro, e crítico é 100 %.
 import { telaDoApp } from "@/lib/config";
 import { IconeSeta } from "./Icones";
 

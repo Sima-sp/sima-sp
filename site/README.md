@@ -114,12 +114,11 @@ A página e o app precisam dizer a mesma coisa. Onde cada afirmação vive:
 - **O quanto a IA acerta** (`Ia.jsx`): os mesmos textos da tela "Como a IA funciona" do app
   (31 de cada 100 alagamentos avisados, em média 2,4 horas antes, sem o sensor; por região acerta
   5 vezes mais; médio a partir de 0,4 % e alto a partir de 1,2 %; crítico só por medição).
-- **O sensor** (`Sensor.jsx`, `LIMITES_CM`): o protótipo mede a distância até a água (só água, não
-  mede lixo); os limites de 60, 45 e 30 cm são os do painel do sensor do app
-  (`app/src/sensor/nivel.js`). Quando a calibração na bancada sair (#55), troque os números ali.
-  Hoje o crítico do sensor é uma distância (30 cm) e o da IA é o bueiro cheio, como no app.
-  Quando #41 e #55 levarem os limites para % do bueiro (com crítico = cheio), revise as seções
-  do sensor e da IA juntas.
+- **O sensor** (`Sensor.jsx`, `LIMITES_PCT`): o protótipo mede a distância até a água (só água, não
+  mede lixo); com a profundidade do bueiro ela vira % de água, e o nível sai da mesma regra do
+  backend e do painel do sensor do app: médio a partir de 50 %, alto a partir de 80 %, crítico em
+  100 % (o bueiro cheio). O desenho usa medidas de exemplo do balde (`MEDIDAS`), até a calibração
+  da #55.
 - **Quem fez** (`lib/equipe.js`): a lista da equipe só aparece quando estiver preenchida. O vídeo e
   o texto do TCC aparecem quando os endereços forem definidos (ver "Configuração").
 - **O que é de verdade** (`Projeto.jsx`): os lugares, a IA, as ruas e as rotas e o protótipo são
