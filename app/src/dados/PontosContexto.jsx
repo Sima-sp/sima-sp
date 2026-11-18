@@ -5,7 +5,8 @@
 //                         "clima" que pode ser trocado na hora (valor.demo);
 //   - com VITE_API_URL  → GET /previsoes do backend, consultado a cada CONFIG.intervaloAtualizacaoMs,
 //                         e junto dele GET /alertas (os alertas ativos do sensor, src/dados/alertas.js)
-//                         e GET /ocorrencias (os relatos aprovados, src/relatos/relatos.js).
+//                         e GET /ocorrencias (os relatos aprovados, src/relatos/relatos.js)
+//                         e GET /previsoes/regioes (o aviso por região da IA, src/dados/regioes.js).
 //
 // Se o backend não responder, o app NÃO troca para a demonstração: mostrar dados inventados num
 // app de risco seria pior do que mostrar um aviso. Ele mantém a última resposta boa (guardada no
@@ -14,7 +15,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { CONFIG } from "../config";
-import { buscarAlertas, buscarPontos } from "./api";
+import { buscarAlertas, buscarPontos, buscarRegioes } from "./api";
 import { alertasDaDemo, juntarAlertas } from "./alertas";
 import { buscarRelatos, relatosValidos } from "../relatos/relatos";
 import { CLIMAS, criarEstadoDemo, emTransicao, gerarPontosDemo, trocarClima } from "./demo";
@@ -53,10 +54,10 @@ export function ProvedorPontos({ children }) {
 
   const [estado, setEstado] = useState(() => {
     if (!usaApi) {
-      return { pontos: gerarPontosDemo(), alertas: [], relatos: [], fonte: "demo", carregando: false, erro: null, atualizadoEm: new Date(), semPosicao: 0 };
+      return { pontos: gerarPontosDemo(), alertas: [], relatos: [], regioesDoServidor: null, fonte: "demo", carregando: false, erro: null, atualizadoEm: new Date(), semPosicao: 0 };
     }
     const guardado = lerGuardado();
-    return { pontos: guardado?.pontos ?? [], alertas: [], relatos: [], fonte: "api", carregando: true, erro: null,
+    return { pontos: guardado?.pontos ?? [], alertas: [], relatos: [], regioesDoServidor: null, fonte: "api", carregando: true, erro: null,
       atualizadoEm: guardado?.atualizadoEm ?? null, semPosicao: 0 };
   });
 
@@ -91,12 +92,13 @@ export function ProvedorPontos({ children }) {
     try {
       // Os alertas e os relatos vão junto, mas não derrubam o mapa: se só eles falharem (um
       // backend antigo, sem a rota), ficam os que já estavam na tela.
-      const [{ pontos, semPosicao }, alertas, relatos] = await Promise.all([
-        buscarPontos(), buscarAlertas().catch(() => null), buscarRelatos().catch(() => null),
+      // As regiões: null quando a IA está fora (503); aí o app calcula com as previsões que tem.
+      const [{ pontos, semPosicao }, alertas, relatos, regioesDoServidor] = await Promise.all([
+        buscarPontos(), buscarAlertas().catch(() => null), buscarRelatos().catch(() => null), buscarRegioes(),
       ]);
       const atualizadoEm = new Date();
       guardar(pontos, atualizadoEm);
-      setEstado((anterior) => ({ pontos, alertas: alertas ?? anterior.alertas, relatos: relatos ?? anterior.relatos, fonte: "api",
+      setEstado((anterior) => ({ pontos, alertas: alertas ?? anterior.alertas, relatos: relatos ?? anterior.relatos, regioesDoServidor, fonte: "api",
         carregando: false, erro: null, atualizadoEm, semPosicao }));
     } catch (erro) {
       setEstado((anterior) => ({ ...anterior, carregando: false, erro: erro.message || "Sem conexão com o servidor." }));
@@ -132,6 +134,8 @@ export function ProvedorPontos({ children }) {
     return {
       ...estado,
       pontos,
+      /** O aviso por região da IA (lerRegioesDoServidor), ou null: avisosPorRegiao calcula no app. */
+      regioesDoServidor: usaApi ? estado.regioesDoServidor : null,
       /** Relatos aprovados e ainda válidos. Na demonstração não há (dependem do servidor). */
       relatos: usaApi ? relatosValidos(estado.relatos, agora) : [],
       /** Alertas ativos do sensor (medição), do mais antigo para o mais novo. */
@@ -151,7 +155,7 @@ export function ProvedorPontos({ children }) {
 
 /**
  * Situação dos bueiros.
- * @returns {{ pontos, alertas, relatos, fonte: "demo"|"api", carregando, erro, atualizadoEm, semPosicao, agora, simulacao, atualizar, porId, demo }}
+ * @returns {{ pontos, alertas, relatos, regioesDoServidor, fonte: "demo"|"api", carregando, erro, atualizadoEm, semPosicao, agora, simulacao, atualizar, porId, demo }}
  */
 export function usePontos() {
   const valor = useContext(Contexto);

@@ -16,6 +16,7 @@
 import { CONFIG } from "../config.js";
 import { definirSessao, sessaoAtual } from "../conta/sessao.js";
 import { normalizarAlerta } from "./alertas.js";
+import { lerRegioesDoServidor } from "./regioes.js";
 import { normalizarPrevisao } from "./modelo.js";
 
 /**
@@ -172,6 +173,18 @@ export async function buscarPontos() {
     console.warn(`[SIMA] ${semPosicao} item(ns) de /previsoes vieram sem id ou posição e ficaram fora do mapa.`);
   }
   return { pontos, semPosicao };
+}
+
+/**
+ * O aviso por região do serviço de IA (GET /previsoes/regioes, público), já lido por
+ * `lerRegioesDoServidor`. null quando a IA está fora (503) ou a resposta não serve: aí o app calcula.
+ */
+export async function buscarRegioes() {
+  try {
+    return lerRegioesDoServidor(await pedirJson("/previsoes/regioes"));
+  } catch {
+    return null;
+  }
 }
 
 /**
