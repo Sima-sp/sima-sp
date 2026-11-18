@@ -15,13 +15,13 @@ import { CabecalhoTela, Tela } from "../componentes/Tela";
 import { IconeSeta } from "../componentes/Icones";
 
 export default function Bairros() {
-  const { pontos, agora, carregando } = usePontos();
+  const { pontos, regioesDoServidor, agora, carregando } = usePontos();
   const [parametros, setParametros] = useSearchParams();
   const navegar = useNavigate();
 
   const bairros = useMemo(() => resumirBairros(pontos, agora), [pontos, agora]);
   const escolhido = bairros.find((b) => b.nome === parametros.get("b")) ?? bairros[0] ?? null;
-  const regioes = useMemo(() => avisosPorRegiao(pontos, agora), [pontos, agora]);
+  const regioes = useMemo(() => avisosPorRegiao(pontos, agora, regioesDoServidor), [pontos, agora, regioesDoServidor]);
   const regiao = escolhido ? regioes.find((r) => r.nome === escolhido.nome) ?? null : null;
 
   if (!escolhido) {
