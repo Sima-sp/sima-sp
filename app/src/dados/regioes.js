@@ -13,16 +13,74 @@
 // O app acrescenta uma coisa que é medição, não previsão: se algum bueiro da região está
 // transbordando agora, a região entra em risco alto e o aviso diz isso.
 //
-// O backend tem GET /previsoes/regioes com essa mesma conta. O app ainda calcula por conta própria,
-// a partir das previsões de cada ponto, porque o formato daquela resposta não foi conferido.
-// Quando for, basta trocar a origem dos dados: as telas só usam o que avisosPorRegiao devolve.
+// DE ONDE VEM (#50): com backend, o nível de cada região é o de GET /previsoes/regioes (o serviço
+// de IA faz a conta; se a regra mudar lá, o app acompanha). O app calcula por conta própria só na
+// demonstração, quando a rota responde 503 (IA fora do ar), quando a resposta já venceu ou para
+// uma região que o servidor não mandou. As telas só usam o que avisosPorRegiao devolve, e
+// `origem` diz de onde veio cada região.
+//
+// Os nomes das regiões do servidor nem sempre são iguais aos do app ("Freguesia do Ó /
+// Brasilândia" e "Freguesia / Brasilândia"): o casamento é pelo primeiro trecho do nome.
 
-import { compararPorGravidade, nivelVisivel, statusAgora } from "./modelo.js";
+import { compararPorGravidade, lerData, nivelVisivel, statusAgora } from "./modelo.js";
 
 export const REGRA_REGIAO = { coberturaMinima: 3, atencao: 0.0102, alto: 0.021 };
 
 /** Nomes do aviso de região. São só dois níveis de aviso; sem aviso, nada é dito. */
 export const ROTULO_AVISO = { 2: "Atenção", 3: "Risco alto" };
+
+/* ───────────── A resposta do servidor ───────────── */
+
+const semAcento = (texto) => String(texto ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+/** O primeiro trecho do nome, sem acento: "Freguesia do Ó / Brasilândia" → "freguesia do o". */
+const primeiroTrecho = (nome) => semAcento(nome).split("/")[0].replace(/[^a-z0-9' ]/g, " ").replace(/\s+/g, " ").trim();
+
+/** Nível do aviso de região a partir do texto do servidor: só há "Atenção" (2) e "Risco alto" (3). */
+function nivelDoServidor(texto) {
+  const t = semAcento(texto).toUpperCase();
+  if (t === "ALTO" || t === "CRITICO") return 3;
+  if (t === "MEDIO") return 2;
+  return null;
+}
+
+/**
+ * Lê a resposta de GET /previsoes/regioes (RegioesIaResponse do backend).
+ * @returns {{ regioes: Array<{ nome, chave, nivel, maiorChance, cobertura }>, validaAte: Date|null, simulada: boolean }|null}
+ *   null quando a resposta não tem a lista
+ */
+export function lerRegioesDoServidor(corpo) {
+  if (!corpo || !Array.isArray(corpo.regioes)) return null;
+  const regioes = corpo.regioes
+    .filter((r) => typeof r?.regiao === "string" && r.regiao.trim())
+    .map((r) => ({
+      nome: r.regiao.trim(),
+      chave: primeiroTrecho(r.regiao),
+      cobertura: r.cobertura !== "SEM_COBERTURA",
+      nivel: r.cobertura === "SEM_COBERTURA" ? null : nivelDoServidor(r.nivelRisco),
+      maiorChance: typeof r.probabilidadeMaxima === "number" ? r.probabilidadeMaxima : null,
+    }));
+  return { regioes, validaAte: lerData(corpo.validaAte), simulada: corpo.fonteChuva === "INFORMADA" };
+}
+
+/**
+ * A região do servidor que corresponde a um nome do app, ou null. Igual primeiro; senão, um nome
+ * que começa pelo outro seguido de espaço ("freguesia" e "freguesia do o"; mas não "vila maria" e
+ * "vila mariana").
+ */
+export function regiaoDoServidor(nome, doServidor) {
+  if (!doServidor?.regioes?.length) return null;
+  const chave = primeiroTrecho(nome);
+  const iguais = doServidor.regioes.find((r) => r.chave === chave);
+  if (iguais) return iguais;
+  return doServidor.regioes.find((r) => r.chave.startsWith(`${chave} `) || chave.startsWith(`${r.chave} `)) ?? null;
+}
+
+/** A resposta do servidor ainda vale? Vencida, o app volta a calcular. */
+export function regioesValidas(doServidor, agora = new Date()) {
+  return Boolean(doServidor && (!doServidor.validaAte || doServidor.validaAte.getTime() > agora.getTime()));
+}
+
+/* ───────────── O aviso de cada região ───────────── */
 
 /**
  * Situação de cada região.
@@ -34,9 +92,13 @@ export const ROTULO_AVISO = { 2: "Atenção", 3: "Risco alto" };
  *   transbordando: number,     // quantos bueiros o sensor mediu transbordando agora
  *   emRisco: number,           // quantos bueiros estão em nível alto ou crítico
  *   pontos: object[],          // do mais grave ao mais tranquilo
+ *   origem: "servidor"|"app",  // de onde veio o nível
  * }>} do aviso mais grave para o mais leve; depois as regiões sem aviso, em ordem alfabética.
+ *
+ * @param {object|null} [doServidor]  o que `lerRegioesDoServidor` devolveu (null = calcular no app)
  */
-export function avisosPorRegiao(pontos, agora = new Date()) {
+export function avisosPorRegiao(pontos, agora = new Date(), doServidor = null) {
+  const servidor = regioesValidas(doServidor, agora) ? doServidor : null;
   const grupos = new Map();
   for (const ponto of pontos) {
     if (!grupos.has(ponto.bairro)) grupos.set(ponto.bairro, []);
@@ -54,13 +116,21 @@ export function avisosPorRegiao(pontos, agora = new Date()) {
       const chance = statusAgora(ponto, agora) === "VALIDA" ? ponto.probabilidade : null;
       if (chance !== null && chance !== undefined && (maiorChance === null || chance > maiorChance)) maiorChance = chance;
     }
-    const cobertura = lista.length >= REGRA_REGIAO.coberturaMinima;
+    let cobertura = lista.length >= REGRA_REGIAO.coberturaMinima;
     let nivel = null;
-    if (cobertura) {
-      if (transbordando > 0 || (maiorChance ?? 0) >= REGRA_REGIAO.alto) nivel = 3;
-      else if ((maiorChance ?? 0) >= REGRA_REGIAO.atencao) nivel = 2;
-    }
-    return { nome, total: lista.length, cobertura, nivel, maiorChance, transbordando, emRisco, pontos: [...lista].sort(compararPorGravidade) };
+    let origem = "app";
+    const daIa = regiaoDoServidor(nome, servidor);
+    if (daIa) {
+      // O servidor manda: a previsão da região é dele.
+      origem = "servidor";
+      cobertura = daIa.cobertura;
+      nivel = daIa.nivel;
+      maiorChance = daIa.maiorChance;
+    } else if (cobertura && (maiorChance ?? 0) >= REGRA_REGIAO.alto) nivel = 3;
+    else if (cobertura && (maiorChance ?? 0) >= REGRA_REGIAO.atencao) nivel = 2;
+    // O que o app acrescenta, nos dois casos: bueiro transbordando agora (medição) põe a região em risco alto.
+    if (cobertura && transbordando > 0) nivel = 3;
+    return { nome, total: lista.length, cobertura, nivel, maiorChance, transbordando, emRisco, origem, pontos: [...lista].sort(compararPorGravidade) };
   });
 
   return regioes.sort((a, b) => (b.nivel ?? 0) - (a.nivel ?? 0) || b.transbordando - a.transbordando
@@ -109,6 +179,10 @@ export function apoioDaRegiao(regiao) {
 
 /** Frase da região para a tela: o que o aviso diz e em que ele se apoia. */
 export function fraseDaRegiao(regiao) {
+  if (!regiao.cobertura && regiao.total >= REGRA_REGIAO.coberturaMinima) {
+    // O servidor da IA conta os pontos dele; pode ter menos nesta região do que o mapa mostra.
+    return "O serviço de previsão não tem pontos suficientes nesta região para um aviso dela. Vale o nível de cada bueiro.";
+  }
   if (!regiao.cobertura) {
     return `Com ${regiao.total === 1 ? "1 bueiro monitorado" : `${regiao.total} bueiros monitorados`}, esta região não recebe aviso (o mínimo é ${REGRA_REGIAO.coberturaMinima}). Vale o nível de cada bueiro.`;
   }

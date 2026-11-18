@@ -40,7 +40,7 @@ import {
 const ICONE_DO_CLIMA = { sol: IconeSol, chuvisco: IconeChuvisco, "chuva-forte": IconeChuva, "chuva-extrema": IconeTempestade };
 
 export default function Mapa() {
-  const { pontos, alertas, relatos, agora, fonte, erro, carregando, simulacao, atualizadoEm, atualizar, demo } = usePontos();
+  const { pontos, alertas, relatos, regioesDoServidor, agora, fonte, erro, carregando, simulacao, atualizadoEm, atualizar, demo } = usePontos();
   const { tema, vitrine: vitrineLigada } = usePreferencias();
   const navegar = useNavigate();
   const local = useLocation();
@@ -58,7 +58,7 @@ export default function Mapa() {
 
   const [recado, setRecado] = useState(null);
   // Aviso por região: o que os bueiros de cada subprefeitura dizem em conjunto (src/dados/regioes.js).
-  const avisoRegional = useMemo(() => resumoDosAvisos(avisosPorRegiao(pontos, agora)), [pontos, agora]);
+  const avisoRegional = useMemo(() => resumoDosAvisos(avisosPorRegiao(pontos, agora, regioesDoServidor)), [pontos, agora, regioesDoServidor]);
 
   const naRaiz = local.pathname === "/";
   const emRota = local.pathname === "/rota";

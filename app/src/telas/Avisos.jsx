@@ -23,10 +23,11 @@ import { CabecalhoTela, Tela } from "../componentes/Tela";
 import { IconeSeta } from "../componentes/Icones";
 
 export default function Avisos() {
-  const { pontos, alertas, agora, carregando, fonte, demo } = usePontos();
+  const { pontos, alertas, regioesDoServidor, agora, carregando, fonte, demo } = usePontos();
   const conta = useConta();
   const navegar = useNavigate();
-  const regioes = useMemo(() => avisosPorRegiao(pontos, agora), [pontos, agora]);
+  const regioes = useMemo(() => avisosPorRegiao(pontos, agora, regioesDoServidor), [pontos, agora, regioesDoServidor]);
+  const doServidor = regioes.some((r) => r.origem === "servidor");
 
   const emAlto = regioes.filter((r) => r.nivel === 3);
   const emAtencao = regioes.filter((r) => r.nivel === 2);
@@ -68,7 +69,9 @@ export default function Avisos() {
       <p className="micro av-fonte">
         {fonte === "demo"
           ? `Demonstração${demo ? ` · ${demo.climas.find((c) => c.id === demo.clima)?.rotulo.toLowerCase()}` : ""}. Mude o clima no mapa para ver os avisos mudarem.`
-          : `Calculado às ${horaCurta(agora)} com as previsões de cada bueiro.`}
+          : doServidor
+            ? `Atualizado às ${horaCurta(agora)}, pelo serviço de previsão do SIMA.`
+            : `Calculado às ${horaCurta(agora)} com as previsões de cada bueiro.`}
       </p>
 
       {alertas.length ? (

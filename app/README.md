@@ -478,10 +478,15 @@ o aviso da região (quando se preparar).
   a região em risco alto, e o aviso diz que foi medido.
 - **Onde aparece:** uma faixa sobre o mapa ("Risco alto em 7 regiões"), que leva à tela **Avisos
   por região** (`/alertas`), e uma linha no cartão de cada bairro (tela Bairros).
-- **De onde vêm os dados:** o app calcula a partir das previsões de cada ponto. O backend tem
-  `GET /previsoes/regioes` com a mesma conta, mas o formato da resposta ainda não foi conferido;
-  quando for, troca-se a origem em `regioes.js` e as telas não mudam.
-- **O que falta:** notificação no celular. Depende do servidor e do app instalado.
+- **De onde vem (#50):** com backend, o nível de cada região é o de `GET /previsoes/regioes`
+  (formato conferido em 18/11/2026: `regiao`, `nivelRisco`, `probabilidadeMaxima`, `cobertura`,
+  `validaAte`). Se a regra mudar no serviço de IA, o app acompanha. O app calcula por conta
+  própria na demonstração, quando a rota responde 503 (IA fora), quando a resposta venceu ou para
+  uma região que o servidor não mandou. A tela Avisos diz qual dos dois foi usado.
+- Os nomes da IA nem sempre são os do app ("Freguesia do Ó / Brasilândia" e "Freguesia /
+  Brasilândia"): o casamento é pelo primeiro trecho do nome, com o teste conferindo os 25 bairros.
+- Nos dois casos, **bueiro transbordando agora** (medição) põe a região em risco alto.
+- **Notificação no celular:** é do alerta do sensor (medição), não do aviso por região. Ver "Alertas do sensor e notificação no celular".
 
 ## Como a IA funciona (a tela)
 
@@ -858,8 +863,7 @@ hospedagem estática sem configurar o servidor.
   bueiros) foi retirado em 06/10/2026: ele sugeria uma área afetada que o app não conhece. No
   lugar entrou o trecho de rua em volta dos bueiros em risco (ver "Ruas afetadas"), que diz onde
   está o risco sem inventar uma mancha.
-- **Aviso por região calculado no app.** A regra é a do serviço de IA; a origem dos dados troca
-  quando o formato de `/previsoes/regioes` for conferido (ver "Aviso por região").
+- **Aviso por região do servidor, com o cálculo do app de reserva.** Ver "Aviso por região".
 - **O sensor entra na chance.** Decisão do Guilherme em 06/10/2026: o sensor foi escolhido para
   ajudar a previsão, não só para medir. Na demonstração e no simulador, o nível da água multiplica
   a chance, e o nível de risco sai dela. Isso muda a recomendação R5 do serviço de IA (lá o sensor mexe só no
@@ -885,7 +889,6 @@ hospedagem estática sem configurar o servidor.
 | Conferir a viagem com GPS na rua, de verdade, e gravar o vídeo para a apresentação | Um trajeto curto, com alguém que não está dirigindo segurando o celular (#47) |
 | Instruções por voz na viagem | Decisão do grupo; o serviço de rotas já devolve as frases em português |
 | Rotas a pé ou de transporte | Fora do escopo: o grupo decidiu por rotas só de carro |
-| Aviso por região vindo do servidor | Formato de `GET /previsoes/regioes` (hoje o app calcula com a mesma regra) |
 | Trecho de rua para sensores fora dos 136 pontos conhecidos | Rodar `npm run ruas` com a posição deles (os de `docs/sensores-capital.sql` já têm trecho) |
 | Mostrar as duas chances (antes e depois do sensor) também nos dados reais | O backend mandar `probabilidadeModelo` em `/previsoes`; o app já lê |
 | A IA aprender o peso do sensor | Meses de leituras de verdade, com registro de quando alagou |
