@@ -64,9 +64,35 @@ um fundo liso. As rotas sempre precisam de internet.
 
 ## Publicar e instalar no celular
 
-O arquivo `.github/workflows/publicar.yml` (na raiz do repositório) publica a demonstração no **GitHub Pages** a cada envio
-para a branch `main`: roda os testes, gera o app com `npm run build:demo` e publica a pasta `dist/`.
-Ela sai junto com a página do projeto, na subpasta `app/`: o endereço fica `https://sima-sp.github.io/sima-sp/app/`, em `https`.
+O arquivo `.github/workflows/publicar.yml` (na raiz do repositório) publica o app no **GitHub Pages** a cada envio
+para a branch `main`: roda os testes, gera o app com `npm run build` e publica a pasta `dist/`.
+Ele sai junto com a página do projeto, na subpasta `app/`: o endereço fica `https://sima-sp.github.io/sima-sp/app/`, em `https`.
+
+**De onde vêm os dados do app publicado** depende de uma variável do repositório, `SIMA_API_URL`
+(Settings → Secrets and variables → Actions → Variables). Não fica escrita no código.
+
+| `SIMA_API_URL` | O app publicado |
+|---|---|
+| vazia ou ausente | É a demonstração, como sempre foi |
+| `https://endereco-do-backend` | Mostra as leituras e as previsões de verdade; a demonstração fica a um toque |
+
+Com backend, **a demonstração continua a um toque** (`src/dados/modoDemo.js`):
+
+- `?demo=1` no endereço abre a demonstração; `?demo=0` volta aos dados do servidor;
+- Menu → **Dados** troca entre "Do servidor" e "Demonstração" e recarrega o app;
+- `?vitrine=1` (é como a página do projeto mostra o app) também é sempre a demonstração;
+- a escolha vale enquanto a aba ou o app instalado estiver aberto. Quem recebeu um link com
+  `?demo=1` não fica preso na demonstração.
+
+O aviso "Demonstração" continua sempre na tela quando os dados não são reais.
+
+Para o backend funcionar com o app publicado ele precisa de **https** (um app em `https` não pode
+chamar um backend em `http`) e de CORS liberado para `https://sima-sp.github.io` (já é o padrão do
+perfil `prod` do backend). O push também só funciona assim.
+
+**Na banca:** publicar pela última vez no congelamento (27/11), conferir no ar e não publicar de
+novo até a apresentação. Se a hospedagem do backend não sair, o plano B é o notebook: `npm run dev`
+com `VITE_API_URL=/api` e o backend local.
 
 Uma vez só, no repositório: **Settings → Pages → Source: GitHub Actions**. Em organização no plano
 gratuito o Pages só funciona em repositório público.
