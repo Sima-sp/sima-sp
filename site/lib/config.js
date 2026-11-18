@@ -4,7 +4,12 @@
 /** Endereço do app publicado, sempre terminando em "/". */
 const urlApp = (process.env.NEXT_PUBLIC_URL_APP || "https://sima-sp.github.io/sima-sp/app/").replace(/\/*$/, "/");
 
+/** Endereço público da própria página, sempre terminando em "/" (para a imagem de compartilhamento). */
+const urlSite = (process.env.NEXT_PUBLIC_URL_SITE || "https://sima-sp.github.io/sima-sp/").replace(/\/*$/, "/");
+
 export const CONFIG = {
+  /** Endereço público desta página. As redes sociais pedem endereço completo da imagem de compartilhamento. */
+  urlSite,
   /** O app (mapa de risco). É para onde vão os botões "Abrir o mapa" e o que aparece no telefone da página. */
   urlApp,
   /** O painel do sensor: página separada do app que mostra o protótipo funcionando. */

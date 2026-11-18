@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+/* Fonte da imagem de compartilhamento (public/compartilhar.png, 1200x630). Para gerar de novo: abra este arquivo no Chrome com a janela em 1200x630 (ou use o modo de aparelho do DevTools) e capture a tela. As fontes vêm de ../node_modules (rode npm ci antes). */
+@font-face { font-family: "Shoulders"; src: url("../node_modules/@fontsource-variable/big-shoulders/files/big-shoulders-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Shoulders"; src: url("../node_modules/@fontsource-variable/big-shoulders/files/big-shoulders-latin-ext-wght-normal.woff2") format("woff2"); font-weight: 100 900; unicode-range: U+0100-024F; }
+@font-face { font-family: "Atkinson"; src: url("../node_modules/@fontsource-variable/atkinson-hyperlegible-next/files/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2"); font-weight: 200 800; }
+html, body { margin: 0; }
+body { width: 1200px; height: 630px; background: #0f1113; color: #f5f7f9; font-family: Atkinson, sans-serif; position: relative; overflow: hidden; }
+.piso { position: absolute; inset: 0; background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 18px); }
+.texto { position: absolute; left: 80px; top: 70px; width: 640px; }
+.selo { font-family: Shoulders; font-weight: 800; font-size: 46px; letter-spacing: 0.06em; text-transform: uppercase; color: #f5f7f9; }
+.selo span { color: #9c9fa5; font-weight: 700; font-size: 28px; letter-spacing: 0.04em; margin-left: 14px; }
+h1 { font-family: Shoulders; font-weight: 800; font-size: 86px; line-height: 0.95; letter-spacing: 0.005em; text-transform: uppercase; margin: 34px 0 0; }
+p { font-size: 29px; line-height: 1.35; color: #bbbec2; margin: 28px 0 0; width: 600px; }
+.rodape { position: absolute; left: 80px; bottom: 44px; font-size: 21px; color: #9c9fa5; }
+.tampas { position: absolute; right: 80px; top: 78px; display: grid; grid-template-columns: repeat(2, 170px); gap: 34px 30px; }
+.tampa { text-align: center; }
+.tampa b { display: block; margin-top: 12px; font-size: 23px; font-weight: 700; }
+</style></head><body><div class="piso"></div>
+<div class="texto">
+  <div class="selo">SIMA<span>São Paulo</span></div>
+  <h1>O bueiro avisa antes que a rua alague</h1>
+  <p>A água medida nos bueiros, a chance de alagar nas próximas 3 horas e a rota que desvia do risco.</p>
+</div>
+<div class="rodape">Sistema Inteligente de Monitoramento de Alagamentos · TCC</div>
+<div class="tampas">
+<div class="tampa"><svg width="150" height="150" viewBox="0 0 24 24"><defs><clipPath id="c1"><circle cx="12" cy="12" r="9.2"/></clipPath></defs><circle cx="12" cy="12" r="10.6" fill="#0d0e11" stroke="#62c9b0" stroke-width="2.2"/><rect x="0" y="16.6" width="24" height="24" fill="#62c9b0" clip-path="url(#c1)"/><path d="M8.4 3.8v16.4M12 2.8v18.4M15.6 3.8v16.4" stroke-width="1.5" fill="none" stroke="#0d0e11"/></svg><b style="color:#62c9b0">Baixo</b></div>
+<div class="tampa"><svg width="150" height="150" viewBox="0 0 24 24"><defs><clipPath id="c2"><circle cx="12" cy="12" r="9.2"/></clipPath></defs><circle cx="12" cy="12" r="10.6" fill="#0d0e11" stroke="#ead04e" stroke-width="2.2"/><rect x="0" y="12.0" width="24" height="24" fill="#ead04e" clip-path="url(#c2)"/><path d="M8.4 3.8v16.4M12 2.8v18.4M15.6 3.8v16.4" stroke-width="1.5" fill="none" stroke="#0d0e11"/></svg><b style="color:#ead04e">Médio</b></div>
+<div class="tampa"><svg width="150" height="150" viewBox="0 0 24 24"><defs><clipPath id="c3"><circle cx="12" cy="12" r="9.2"/></clipPath></defs><circle cx="12" cy="12" r="10.6" fill="#0d0e11" stroke="#f58a2b" stroke-width="2.2"/><rect x="0" y="7.4" width="24" height="24" fill="#f58a2b" clip-path="url(#c3)"/><path d="M8.4 3.8v16.4M12 2.8v18.4M15.6 3.8v16.4" stroke-width="1.5" fill="none" stroke="#0d0e11"/></svg><b style="color:#f58a2b">Alto</b></div>
+<div class="tampa"><svg width="150" height="150" viewBox="0 0 24 24"><defs><clipPath id="c4"><circle cx="12" cy="12" r="9.2"/></clipPath></defs><circle cx="12" cy="12" r="10.6" fill="#0d0e11" stroke="#f25c94" stroke-width="2.2"/><rect x="0" y="2.8" width="24" height="24" fill="#f25c94" clip-path="url(#c4)"/><path d="M8.4 3.8v16.4M12 2.8v18.4M15.6 3.8v16.4" stroke-width="1.5" fill="none" stroke="#0d0e11"/></svg><b style="color:#f25c94">Crítico</b></div>
+</div></body></html>
