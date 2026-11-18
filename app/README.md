@@ -486,7 +486,7 @@ o aviso da região (quando se preparar).
 - Os nomes da IA nem sempre são os do app ("Freguesia do Ó / Brasilândia" e "Freguesia /
   Brasilândia"): o casamento é pelo primeiro trecho do nome, com o teste conferindo os 25 bairros.
 - Nos dois casos, **bueiro transbordando agora** (medição) põe a região em risco alto.
-- **O que falta:** notificação no celular. Depende do servidor e do app instalado.
+- **Notificação no celular:** é do alerta do sensor (medição), não do aviso por região. Ver "Alertas do sensor e notificação no celular".
 
 ## Como a IA funciona (a tela)
 
