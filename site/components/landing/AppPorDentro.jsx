@@ -2,17 +2,18 @@
 // "O app, por dentro": o app DE VERDADE rodando num telefone, dentro da página.
 //
 // Não há telas de imitação: o telefone é um <iframe> com o app publicado (CONFIG.urlApp).
-// - O app é aberto com `?vitrine=1`: ele passeia sozinho (troca o clima, aproxima de um bueiro)
-//   até a pessoa tocar. É o "modo vitrine" do app (mobile-app/src/telas/useVitrine.js).
+// - O app é aberto com `?demo=1&vitrine=1`: sempre na demonstração (o app publicado pode estar
+//   ligado ao servidor) e passeando sozinho (troca o clima, aproxima de um bueiro) até a pessoa
+//   tocar. É o "modo vitrine" do app (app/src/telas/useVitrine.js).
 // - A lista ao lado troca a tela do telefone mudando só o "#..." do endereço do iframe (o app usa
 //   rotas com "#", então ele troca de tela sem recarregar) e avisa o app para parar o passeio.
 // - O app só é carregado quando a seção chega perto da tela: ele é pesado (mapa) e não deve
 //   atrasar a abertura da página. Quem pediu economia de dados decide quando abrir.
 // - Em tela estreita o telefone não recebe toque (senão o mapa prenderia a rolagem da página):
 //   ele vira uma vitrine, e um toque abre o app inteiro.
-// - Quem pediu menos movimento ao aparelho recebe o app parado, sem o passeio.
+// - Quem pediu menos movimento ao aparelho recebe o app parado, sem o passeio (mas ainda na demonstração).
 import { useEffect, useRef, useState } from "react";
-import { CONFIG, telaDoApp } from "@/lib/config";
+import { CONFIG, telaDaDemo } from "@/lib/config";
 import { BUEIRO } from "@/lib/demonstracao";
 import { IconeSeta, MarcaTampa } from "./Icones";
 
@@ -58,7 +59,7 @@ export default function AppPorDentro() {
 
   const abrirApp = () => {
     const semMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setOrigem((atual) => atual ?? `${CONFIG.urlApp}${semMovimento ? "" : "?vitrine=1"}`);
+    setOrigem((atual) => atual ?? `${CONFIG.urlApp}?demo=1${semMovimento ? "" : "&vitrine=1"}`);
   };
 
   // Abre o app quando a seção chega perto da tela.
@@ -132,9 +133,9 @@ export default function AppPorDentro() {
                 </div>
               </div>
               {/* Em tela estreita o telefone é só vitrine: o toque abre o app inteiro. */}
-              <a className="ld-toque" href={telaDoApp(atual.rota)} aria-label={`Abrir o app do SIMA na tela ${atual.nome}`} />
+              <a className="ld-toque" href={telaDaDemo(atual.rota)} aria-label={`Abrir o app do SIMA na tela ${atual.nome}`} />
             </div>
-            <a className="ld-seta" href={telaDoApp(atual.rota)}>Abrir o app em tela cheia<IconeSeta pequeno /></a>
+            <a className="ld-seta" href={telaDaDemo(atual.rota)}>Abrir o app em tela cheia<IconeSeta pequeno /></a>
           </div>
         </div>
       </div>

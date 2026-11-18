@@ -14,6 +14,8 @@ import {
 } from "../componentes/Icones";
 import { ESPERA_MS } from "../dados/vitrine";
 import { comecarVitrine } from "./useVitrine";
+import { CONFIG } from "../config";
+import { escolherDemo } from "../dados/modoDemo";
 
 const VERSAO = "0.1";
 
@@ -105,6 +107,22 @@ export default function Menu() {
       <p className="micro" style={{ padding: "8px 36px 0" }}>
         “Do aparelho” segue a configuração de acessibilidade do celular ou computador.
       </p>
+
+      {/* Só no app que tem backend: a demonstração a um toque, para quem apresenta o projeto. */}
+      {CONFIG.urlApiConfigurada ? (
+        <>
+          <h2 className="grp-t" id="rotulo-dados">Dados</h2>
+          <div className="grp" style={{ padding: 10 }}>
+            <div className="seg mu-seg" role="group" aria-labelledby="rotulo-dados">
+              <button type="button" className={fonte === "api" ? "seg-on" : ""} aria-pressed={fonte === "api"} onClick={() => { if (fonte !== "api") escolherDemo(false); }}>Do servidor</button>
+              <button type="button" className={fonte === "demo" ? "seg-on" : ""} aria-pressed={fonte === "demo"} onClick={() => { if (fonte !== "demo") escolherDemo(true); }}>Demonstração</button>
+            </div>
+          </div>
+          <p className="micro" style={{ padding: "8px 36px 0" }}>
+            “Do servidor” mostra as leituras e as previsões de verdade. “Demonstração” troca por 136 bueiros de exemplo, com o clima que muda. Trocar recarrega o app; a conta e os relatos só existem com os dados do servidor.
+          </p>
+        </>
+      ) : null}
 
       {/* Modo vitrine: só na demonstração, que é onde há clima para trocar (src/telas/useVitrine.js). */}
       {fonte === "demo" ? (
