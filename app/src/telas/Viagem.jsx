@@ -7,9 +7,13 @@
 // - embaixo, quanto falta (tempo, distância, hora de chegada) e o botão de sair;
 // - no mapa, o carro sobre o caminho, com a câmera atrás dele.
 //
-// A VIAGEM É SIMULADA: o carro anda sozinho pelo caminho, na velocidade média que o serviço de
-// rotas calculou, multiplicada pela velocidade escolhida (1×, 5× ou 15×). O app ainda não segue o
-// GPS do aparelho. Isso está escrito na tela ("Viagem simulada").
+// DOIS MODOS, escolhidos no painel de baixo:
+// - "Simular" (o padrão): o carro anda sozinho pelo caminho, na velocidade média que o serviço de
+//   rotas calculou, multiplicada pela velocidade escolhida (1×, 5× ou 15×). É o que aparece numa
+//   apresentação, dentro de uma sala, onde o GPS não anda. A tela diz "Viagem simulada".
+// - "Seguir meu GPS": o carro acompanha a posição do aparelho, encaixada no caminho e sempre para a
+//   frente (src/rotas/gps.js). Saiu da rota (mais de 50 m por 5 s), o caminho é refeito a partir de
+//   onde o aparelho está. Sem permissão ou sem GPS, a tela explica e volta para a simulação.
 //
 // O que é do SIMA: se, no meio da viagem, um bueiro do caminho que falta entra em risco (na
 // demonstração, ao trocar o clima), a tela avisa, para o carro um instante e pede um caminho novo
@@ -24,6 +28,7 @@ import { nivelVisivel } from "../dados/modelo";
 import { useRotas } from "../rotas/RotaContexto";
 import { assinaturaDoRisco, noCaminho, planejarRota, pontosEmRisco, textoDistancia, textoDuracao } from "../rotas/planejar";
 import { pedirRotaDeCarro } from "../rotas/servico";
+import { acompanharGps, comecarGps, lerPosicao, textoDoErroDoGps } from "../rotas/gps";
 import {
   caminhoQueFalta, descreverManobra, giro, horaDeChegada, pontoNoMetro, prepararViagem, rumoNoMetro, situacaoDaViagem, textoAteManobra,
 } from "../rotas/viagem";
@@ -44,6 +49,8 @@ const LARGADA_MS = 1000;
 const CONFERIR_A_CADA = 150;
 /** Quanto tempo o recado de "nova rota" fica na tela. */
 const RECADO_MS = 8000;
+/** Fora da rota, o caminho não é pedido de novo antes disto (o servidor público de rotas é emprestado). */
+const ESPERA_ENTRE_DESVIOS_MS = 10000;
 
 const menosMovimento = () => document.documentElement.classList.contains("mov-reduzido");
 const telaLarga = () => window.matchMedia("(min-width: 900px)").matches;
@@ -90,19 +97,25 @@ export function Viagem({ mapaRef, seguindo, aoSeguir, aoSair, aoConcluir, clima 
   const [indiceVelocidade, setIndiceVelocidade] = useState(VELOCIDADE_INICIAL);
   const [recalculando, setRecalculando] = useState(false);
   const [recado, setRecado] = useState(null);
+  // "simular" ou "gps". Começa simulando: numa sala o GPS não anda.
+  const [modo, setModo] = useState("simular");
+  const [avisoDoGps, setAvisoDoGps] = useState(null); // por que o GPS não pôde ser usado
+  const [sinalFraco, setSinalFraco] = useState(false);
+  const [esperandoGps, setEsperandoGps] = useState(false); // ligou o GPS e a primeira posição ainda não chegou
+  const [pedidoDeDesvio, setPedidoDeDesvio] = useState(0); // aumenta quando o GPS diz que saiu da rota
 
   // O andamento fica fora do estado do React: muda a cada quadro, e a tela só é redesenhada
   // quando algum texto muda (ver chaveDoQuadro).
   const andamento = useRef(null);
   if (!andamento.current) {
     andamento.current = { metro: 0, simulados: 0, inicio: Date.now(), rumoDaCamera: 0, parado: false, largada: 0, cameraLivreEm: 0,
-      partida: null, viagem: null, chave: "" };
+      partida: null, viagem: null, chave: "", gps: comecarGps(), ultimoDesvio: -Infinity, desviando: false };
   }
   const [quadro, setQuadro] = useState(() => montarQuadro(viagem, situacaoDaViagem(viagem, 0), new Date()));
 
   // O laço lê sempre os valores mais recentes, sem recomeçar a cada desenho da tela.
   const atual = useRef(null);
-  atual.current = { seguindo, velocidade: VELOCIDADES[indiceVelocidade], pontos, agora };
+  atual.current = { seguindo, velocidade: VELOCIDADES[indiceVelocidade], pontos, agora, modo };
 
   /** Como a câmera deve ficar atrás do carro num ponto da viagem. */
   const enquadramento = (metro) => {
@@ -127,11 +140,12 @@ export function Viagem({ mapaRef, seguindo, aoSeguir, aoSair, aoConcluir, clima 
     const agoraMs = performance.now();
     if (a.partida !== partida) {
       // Viagem nova: o carro espera a câmera chegar atrás dele.
-      Object.assign(a, { partida, viagem, metro: 0, simulados: 0, inicio: Date.now(), largada: agoraMs + LARGADA_MS, cameraLivreEm: agoraMs + LARGADA_MS });
+      Object.assign(a, { partida, viagem, metro: 0, simulados: 0, inicio: Date.now(), largada: agoraMs + LARGADA_MS, cameraLivreEm: agoraMs + LARGADA_MS,
+        gps: comecarGps() });
       a.rumoDaCamera = rumoNoMetro(viagem, 0);
     } else if (a.viagem !== viagem) {
       // Caminho novo no meio da viagem: ele começa onde o carro está.
-      Object.assign(a, { viagem, metro: 0 });
+      Object.assign(a, { viagem, metro: 0, gps: comecarGps() });
     }
     const metrosPorSegundo = viagem.segundos > 0 ? viagem.metros / viagem.segundos : 8;
 
@@ -141,19 +155,30 @@ export function Viagem({ mapaRef, seguindo, aoSeguir, aoSair, aoConcluir, clima 
       // Um quadro que demora mais de 1 s é a aba voltando do segundo plano: não conta como viagem.
       const dt = Math.min(1, Math.max(0, (instante - anterior) / 1000));
       anterior = instante;
-      const { velocidade, seguindo: seguir } = atual.current;
-      if (!a.parado && instante >= a.largada) {
+      const { velocidade, seguindo: seguir, modo: modoAgora } = atual.current;
+      const comGps = modoAgora === "gps";
+      if (comGps) {
+        // O carro desliza até onde o GPS o encaixou no caminho (uma posição por segundo, mais ou menos).
+        const alvo = a.gps.metro;
+        a.metro += (alvo - a.metro) * (1 - Math.exp(-dt / 0.6));
+        if (Math.abs(alvo - a.metro) < 0.05) a.metro = alvo;
+      } else if (!a.parado && instante >= a.largada) {
         a.metro = Math.min(viagem.metros, a.metro + dt * velocidade.fator * metrosPorSegundo);
         a.simulados += dt * velocidade.fator;
       }
       const situacao = situacaoDaViagem(viagem, a.metro);
+      // Fora da rota, o carro aparece onde o aparelho está, e não preso ao caminho antigo.
+      const foraDaRota = comGps && a.gps.foraDesde !== null && a.gps.posicao;
+      const ponto = foraDaRota ? a.gps.posicao : situacao.ponto;
+      const rumo = comGps && a.gps.rumo !== null ? a.gps.rumo : situacao.rumo;
       const inclinado = !menosMovimento();
       // A câmera gira aos poucos até o rumo do carro; sem isso cada esquina seria um tranco.
-      a.rumoDaCamera = inclinado ? (a.rumoDaCamera + giro(a.rumoDaCamera, situacao.rumo) * (1 - Math.exp(-dt / 0.45)) + 360) % 360 : 0;
-      mapaRef.current?.moverCarro({ lon: situacao.ponto[0], lat: situacao.ponto[1], rumo: situacao.rumo, rumoDaCamera: a.rumoDaCamera,
+      a.rumoDaCamera = inclinado ? (a.rumoDaCamera + giro(a.rumoDaCamera, rumo) * (1 - Math.exp(-dt / 0.45)) + 360) % 360 : 0;
+      mapaRef.current?.moverCarro({ lon: ponto[0], lat: ponto[1], rumo, rumoDaCamera: a.rumoDaCamera,
         seguir: seguir && instante >= a.cameraLivreEm });
 
-      const novo = montarQuadro(viagem, situacao, new Date(a.inicio + a.simulados * 1000));
+      // Com GPS, o relógio é o de verdade; na simulação, o tempo simulado.
+      const novo = montarQuadro(viagem, situacao, comGps ? new Date() : new Date(a.inicio + a.simulados * 1000));
       const chave = chaveDoQuadro(novo);
       if (chave !== a.chave) {
         a.chave = chave;
@@ -165,6 +190,100 @@ export function Viagem({ mapaRef, seguindo, aoSeguir, aoSair, aoConcluir, clima 
     return () => cancelAnimationFrame(quadroPedido);
     // O laço só recomeça quando a viagem (ou o caminho dela) muda.
   }, [viagem, partida, mapaRef]);
+
+  /* ───────────── GPS ───────────── */
+
+  // Enquanto o modo for "gps", lê a posição do aparelho. Cada posição vai para gps.js, que diz
+  // onde o carro está no caminho, se saiu da rota e se o sinal está fraco.
+  useEffect(() => {
+    if (modo !== "gps") return undefined;
+    if (!navigator.geolocation) {
+      setAvisoDoGps(textoDoErroDoGps("sem-gps"));
+      setModo("simular");
+      return undefined;
+    }
+    const a = andamento.current;
+    // Começa do começo do caminho: o GPS acha a pessoa onde ela estiver (o carro só vai para a frente).
+    a.gps = comecarGps();
+    setEsperandoGps(true);
+    setAvisoDoGps(null);
+    const vigia = navigator.geolocation.watchPosition(
+      (posicao) => {
+        setEsperandoGps(false);
+        if (!a.viagem) return;
+        a.gps = acompanharGps(a.gps, a.viagem, lerPosicao(posicao));
+        setSinalFraco(a.gps.sinalFraco);
+        if (a.gps.fora && !a.desviando && performance.now() - a.ultimoDesvio >= ESPERA_ENTRE_DESVIOS_MS) {
+          a.desviando = true;
+          setPedidoDeDesvio((n) => n + 1);
+        }
+      },
+      (erro) => {
+        // Sem permissão: volta para a simulação e diz por quê. Sinal perdido (código 2) ou demora
+        // (3) no meio da viagem: o navegador continua tentando; só avisa.
+        if (erro.code === 1) {
+          setAvisoDoGps(textoDoErroDoGps(1));
+          setModo("simular");
+        } else setSinalFraco(true);
+      },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 },
+    );
+    return () => {
+      navigator.geolocation.clearWatch(vigia);
+      setEsperandoGps(false);
+      setSinalFraco(false);
+    };
+  }, [modo]);
+
+  const escolherModo = (novo) => {
+    if (novo === modo) return;
+    const a = andamento.current;
+    if (novo === "simular") {
+      // A simulação continua de onde o carro está, no relógio simulado.
+      a.inicio = Date.now();
+      a.simulados = 0;
+      a.largada = 0;
+    }
+    setModo(novo);
+    retomar();
+  };
+
+  // Saiu da rota com o GPS: pede um caminho a partir de onde o aparelho está (desviando dos bueiros em risco).
+  useEffect(() => {
+    if (!pedidoDeDesvio) return undefined;
+    const a = andamento.current;
+    const origem = a.gps.posicao;
+    if (!origem) {
+      a.desviando = false;
+      return undefined;
+    }
+    const controle = new AbortController();
+    const chegada = [destino.lon, destino.lat];
+    setRecalculando(true);
+    setRecado(null);
+    planejarRota({ origem, destino: chegada, pontos: atual.current.pontos, agora: atual.current.agora,
+      pedirRota: (areas) => pedirRotaDeCarro({ origem, destino: chegada, areas, sinal: controle.signal }) })
+      .then((resultado) => {
+        if (controle.signal.aborted) return;
+        trocarRotaDaViagem(resultado.segura ?? resultado.rapida);
+        setRecado("Você saiu da rota: caminho refeito a partir de onde você está");
+      })
+      .catch(() => {
+        if (!controle.signal.aborted) setRecado("Você saiu da rota. Não foi possível refazer o caminho agora; tentando de novo.");
+      })
+      .finally(() => {
+        if (controle.signal.aborted) return;
+        a.ultimoDesvio = performance.now();
+        a.desviando = false;
+        setRecalculando(false);
+      });
+    return () => {
+      controle.abort();
+      a.desviando = false;
+      setRecalculando(false);
+    };
+    // `destino` é lido no momento do pedido; o que dispara é o GPS dizer que saiu da rota.
+  }, [pedidoDeDesvio]);
 
   /** Leva a câmera de volta para trás do carro (depois de arrastar o mapa ou de trocar a velocidade). */
   const retomar = () => {
@@ -320,6 +439,13 @@ export function Viagem({ mapaRef, seguindo, aoSeguir, aoSair, aoConcluir, clima 
             <p className={`lg mp-aviso vg-risco vg-risco-${maisGrave}`} role="alert"><span className="mp-aviso-dot" aria-hidden="true" />{textoDoRisco}</p>
           ) : null}
           {recado && !recalculando ? <p className="lg mp-aviso" role="status"><span className="mp-aviso-dot" aria-hidden="true" />{recado}</p> : null}
+          {modo === "gps" && esperandoGps ? <p className="lg mp-aviso" role="status"><span className="mp-aviso-dot" aria-hidden="true" />Procurando o sinal do GPS…</p> : null}
+          {modo === "gps" && sinalFraco && !esperandoGps ? <p className="lg mp-aviso" role="status"><span className="mp-aviso-dot" aria-hidden="true" />Sinal do GPS fraco: a posição pode atrasar</p> : null}
+          {avisoDoGps ? (
+            <button type="button" className="lg mp-aviso" role="alert" onClick={() => setAvisoDoGps(null)}>
+              <span className="mp-aviso-dot" aria-hidden="true" />{avisoDoGps}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -345,13 +471,18 @@ export function Viagem({ mapaRef, seguindo, aoSeguir, aoSair, aoConcluir, clima 
               <button type="button" className="btn vg-sair" onClick={aoSair}>Sair</button>
             </div>
             <div className="vg-simulacao">
-              <p className="vg-nota">Viagem simulada</p>
-              <div className="seg" role="group" aria-label="Velocidade da simulação">
-                {VELOCIDADES.map((v, i) => (
-                  <button key={v.rotulo} type="button" className={i === indiceVelocidade ? "seg-on" : undefined} aria-pressed={i === indiceVelocidade}
-                    aria-label={v.nome} onClick={() => setIndiceVelocidade(i)}>{v.rotulo}</button>
-                ))}
+              <div className="seg vg-modo" role="group" aria-label="Como o carro anda">
+                <button type="button" className={modo === "simular" ? "seg-on" : undefined} aria-pressed={modo === "simular"} onClick={() => escolherModo("simular")}>Simular</button>
+                <button type="button" className={modo === "gps" ? "seg-on" : undefined} aria-pressed={modo === "gps"} onClick={() => escolherModo("gps")}>Seguir meu GPS</button>
               </div>
+              {modo === "simular" ? (
+                <div className="seg" role="group" aria-label="Velocidade da simulação">
+                  {VELOCIDADES.map((v, i) => (
+                    <button key={v.rotulo} type="button" className={i === indiceVelocidade ? "seg-on" : undefined} aria-pressed={i === indiceVelocidade}
+                      aria-label={v.nome} onClick={() => setIndiceVelocidade(i)}>{v.rotulo}</button>
+                  ))}
+                </div>
+              ) : <p className="vg-nota">Seguindo o GPS</p>}
             </div>
           </>
         )}
