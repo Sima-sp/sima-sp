@@ -184,10 +184,24 @@ Com a rota no mapa, o cartão tem o botão **Começar viagem**. Ele abre a tela 
 - **Embaixo**, quanto falta (tempo e distância), a hora de chegada e o botão **Sair**, que volta ao
   cartão da rota. Ao chegar, a faixa diz "Você chegou" e o botão vira **Concluir**.
 
-**A viagem é simulada.** O carro anda sozinho, na velocidade média que o serviço de rotas calculou,
-e a tela diz isso ("Viagem simulada"). Os botões 1×, 5× e 15× mudam a velocidade: 1× é o tempo
-real; 5× é o padrão, bom para mostrar; 15× percorre a cidade em cerca de um minuto. O app ainda
-não acompanha o GPS do aparelho (ver "O que ainda não existe").
+**Simular ou seguir o GPS** (botões no painel de baixo da viagem; código em `src/rotas/gps.js`).
+
+- **Simular** é o padrão, porque numa sala o GPS não anda. O carro anda sozinho, na velocidade
+  média que o serviço de rotas calculou; 1×, 5× e 15× mudam a velocidade.
+- **Seguir meu GPS** lê a posição do aparelho só enquanto a viagem está aberta, em alta precisão:
+  - **Encaixe no caminho**: o ponto do traçado mais perto do GPS, procurando à frente do carro
+    (com 15 m de folga para trás). O carro **nunca anda para trás**: o ruído do GPS parado no
+    semáforo não o faz voltar. Se o GPS voltar bem mais à frente (depois de um túnel), ele é
+    achado no resto do caminho.
+  - **Saiu da rota**: mais de 50 m do caminho por 5 s seguidos. Um ponto isolado longe não basta.
+    O caminho é refeito a partir de onde o aparelho está, desviando dos bueiros em risco, e não é
+    pedido de novo antes de 10 s (o servidor público de rotas é emprestado; o app já espaça os
+    pedidos em um por segundo). Fora da rota, o carro aparece onde o aparelho está.
+  - **Sinal fraco**: precisão pior que 50 m por 10 s. A tela avisa, e a posição imprecisa não move
+    o carro nem conta para "saiu da rota".
+  - O rumo vem do GPS quando o carro anda a mais de 2 m/s; parado, vale o do caminho.
+  - Sem permissão de localização, a tela explica e volta para a simulação.
+- A tela não apaga durante a viagem (Wake Lock), nos dois modos.
 
 **O que é do SIMA:** se, no meio da viagem, um bueiro do caminho que falta entra em risco, a tela
 avisa ("Bueiro MO-06 em risco à frente"), o carro para um instante e o app pede um caminho novo a
@@ -779,6 +793,7 @@ src/
     RotaContexto.jsx       partida, chegada e resultado; refaz a rota quando o risco muda; guarda a viagem em curso (useRotas)
     useEnderecos.js        busca de endereço enquanto a pessoa digita
     planejar.test.js       testes da regra, sem internet
+    gps.js                 a viagem seguindo o GPS: encaixe no caminho, saiu da rota, sinal fraco (e o teste)
     viagem.js              a regra da tela de viagem: onde o carro está, a próxima manobra e quanto falta (e o teste)
   preferencias/
     PreferenciasContexto.jsx   tema, animações e modo vitrine (usePreferencias)
@@ -867,7 +882,7 @@ hospedagem estática sem configurar o servidor.
 
 | Tela | Depende de |
 |---|---|
-| Viagem acompanhando o GPS do aparelho (hoje a viagem é simulada) | Ler a posição do aparelho durante a viagem e encaixá-la no caminho; testar na rua |
+| Conferir a viagem com GPS na rua, de verdade, e gravar o vídeo para a apresentação | Um trajeto curto, com alguém que não está dirigindo segurando o celular (#47) |
 | Instruções por voz na viagem | Decisão do grupo; o serviço de rotas já devolve as frases em português |
 | Rotas a pé ou de transporte | Fora do escopo: o grupo decidiu por rotas só de carro |
 | Aviso por região vindo do servidor | Formato de `GET /previsoes/regioes` (hoje o app calcula com a mesma regra) |
