@@ -24,6 +24,7 @@ import { REGRAS, resumoDaRota, textoDistancia, textoDuracao, viasPrincipais } fr
 import { corNivel } from "../dados/niveis";
 import { fatosDoCartao, horaCurta, linhaSituacao, nivelVisivel, tituloDoPonto } from "../dados/modelo";
 import { avisosPorRegiao, resumoDosAvisos } from "../dados/regioes";
+import { resumoDosAlertas, textoDoAlerta } from "../dados/alertas";
 import { useApresentacao } from "../componentes/PrimeiroUso";
 import { useTelaLarga } from "../componentes/ganchos";
 import { useArrastarVertical } from "../componentes/arrastar";
@@ -38,7 +39,7 @@ import {
 const ICONE_DO_CLIMA = { sol: IconeSol, chuvisco: IconeChuvisco, "chuva-forte": IconeChuva, "chuva-extrema": IconeTempestade };
 
 export default function Mapa() {
-  const { pontos, agora, fonte, erro, carregando, simulacao, atualizadoEm, atualizar, demo } = usePontos();
+  const { pontos, alertas, agora, fonte, erro, carregando, simulacao, atualizadoEm, atualizar, demo } = usePontos();
   const { tema, vitrine: vitrineLigada } = usePreferencias();
   const navegar = useNavigate();
   const local = useLocation();
@@ -236,6 +237,15 @@ export default function Mapa() {
           </div>
           <Avisos fonte={fonte} erro={erro} carregando={carregando} simulacao={simulacao} atualizadoEm={atualizadoEm}
             temPontos={pontos.length > 0} aoTentarDeNovo={atualizar} demo={demo} />
+          {/* Alertas do sensor (medição): vêm antes do aviso por região, que é previsão. */}
+          {alertas.length ? (
+            <button type="button" className="lg mp-aviso mp-regiao mp-alerta" onClick={() => navegar("/alertas")}
+              aria-label={`${resumoDosAlertas(alertas)}, medido pelo sensor. Ver os alertas`}>
+              <span className="mp-aviso-dot" aria-hidden="true" />
+              <span className="mp-regiao-texto">{resumoDosAlertas(alertas)}</span>
+              <IconeSeta pequeno />
+            </button>
+          ) : null}
           {avisoRegional ? (
             <button type="button" className={`lg mp-aviso mp-regiao mp-regiao-${avisoRegional.nivel}`} onClick={() => navegar("/alertas")} aria-label={avisoRegional.descricao}>
               <span className="mp-aviso-dot" aria-hidden="true" />
@@ -354,6 +364,7 @@ function CartaoBueiro({ refCartao, ponto, aberto, agora, aoFechar, aoVerBueiro, 
           <h2 className="ms-title">{tituloDoPonto(ponto)}</h2>
           <p className="ms-addr">{ponto.endereco ? `${ponto.endereco} · ${ponto.bairro}` : ponto.bairro}</p>
           <p className="ms-stat" style={{ color: nivel ? corNivel(nivel) : "var(--bone-300)" }}>{linhaSituacao(ponto, agora)}</p>
+          {ponto.alerta ? <p className="ms-alerta">{textoDoAlerta(ponto.alerta)}</p> : null}
         </div>
         <button type="button" className="icon-btn ms-x" onClick={aoFechar} aria-label="Fechar">
           <IconeFechar pequeno />

@@ -155,6 +155,8 @@
   border: 1px solid currentColor; font-family: var(--f-stamp); font-weight: 800; font-size: 13px; line-height: 18px;
   letter-spacing: 0.06em; white-space: nowrap; }
 .mk-apagado svg { opacity: 0.55; }
+/* Alerta ativo do sensor: anel tracejado em volta da tampa (forma, não só cor). */
+.mk-alerta-anel { position: absolute; left: 3px; top: 3px; width: 38px; height: 38px; border-radius: 50%; border: 2.5px dashed var(--r4); }
 /* Grupo de bueiros próximos: anel com a proporção de cada nível e o total no meio. */
 .mk-grupo svg { left: 0; top: 0; }
 .mk-grupo .mk-pulso { left: 0; top: 0; width: 44px; height: 44px; }
@@ -471,3 +473,8 @@ a.row.mu-link, a.row.mu-link:hover { color: var(--bone-100); text-decoration: no
 .ct-perigo { background: #b3123f; color: #ffffff; } /* fixo nos dois temas: o --r4 do noturno não dá contraste com letra branca */
 .ct-inicial { font-family: var(--f-ui); font-size: 20px; font-weight: 800; line-height: 1; }
 .row.row-blue, .row.row-red { justify-content: center; }
+
+/* ───────────── Alertas do sensor ───────────── */
+.mp-alerta .mp-aviso-dot { background: var(--r4); }
+.av-alerta-nota { padding: 8px 36px 0; }
+.ms-alerta { margin-top: 6px; font-size: 14px; font-weight: 700; color: var(--r4); }

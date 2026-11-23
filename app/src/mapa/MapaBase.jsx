@@ -297,7 +297,7 @@ function Marcadores({ mapa, pontos, agora, zoom, selecionadoId, aoTocar }) {
       const item = registro.current.get(g.chave);
       if (!item) continue;
       const selecionado = g.membros.length === 1 && g.membros[0].id === selecionadoId;
-      const gravidade = Math.max(...g.membros.map((p) => (p.nivel ?? 0) + (p.medicaoTransbordando ? 5 : 0)));
+      const gravidade = Math.max(...g.membros.map((p) => (p.nivel ?? 0) + (p.medicaoTransbordando ? 5 : 0) + (p.alerta ? 10 : 0)));
       item.no.style.zIndex = String(selecionado ? 30 : gravidade);
     }
   });
@@ -335,15 +335,18 @@ function BotaoTampa({ ponto, agora, selecionado, comRotulo, aoTocar }) {
   const classes = ["mk"];
   if (selecionado) classes.push("mk-sel");
   if (desatualizado) classes.push("mk-apagado");
+  // Alerta ativo do sensor (medição): um anel a mais em volta da tampa, além da cor do nível.
+  if (ponto.alerta) classes.push("mk-alerta");
 
   let descricao = `Bueiro ${ponto.codigo}`;
   if (ponto.endereco) descricao += `, ${ponto.endereco}`;
-  if (ponto.medicaoTransbordando) descricao += ", transbordando agora";
+  if (ponto.alerta) descricao += ", em alerta, medido pelo sensor";
+  else if (ponto.medicaoTransbordando) descricao += ", transbordando agora";
   else if (!nivel) descricao += ", sem previsão";
   else descricao += `, risco ${rotuloNivel(nivel).toLowerCase()}${desatualizado ? ", previsão desatualizada" : ""}`;
 
   // O código aparece ao lado dos pontos altos e críticos quando o mapa está perto, e sempre no selecionado.
-  const mostraRotulo = selecionado || (comRotulo && !desatualizado && nivel >= 3);
+  const mostraRotulo = selecionado || Boolean(ponto.alerta) || (comRotulo && !desatualizado && nivel >= 3);
 
   return (
     <button
@@ -357,7 +360,8 @@ function BotaoTampa({ ponto, agora, selecionado, comRotulo, aoTocar }) {
       }}
     >
       <span className="mk-anel" aria-hidden="true" />
-      {nivel === 4 && !desatualizado ? <span className="mk-pulso" aria-hidden="true" /> : null}
+      {(nivel === 4 && !desatualizado) || ponto.alerta ? <span className="mk-pulso" aria-hidden="true" /> : null}
+      {ponto.alerta ? <span className="mk-alerta-anel" aria-hidden="true" /> : null}
       <Tampa nivel={nivel} tamanho={24} />
       {mostraRotulo ? <span className="mk-rotulo" style={{ color: corNivel(nivel) }} aria-hidden="true">{ponto.codigo}</span> : null}
     </button>
@@ -408,7 +412,7 @@ function BotaoGrupo({ membros, agora, aoTocar }) {
         aoTocar(membros);
       }}
     >
-      {contagem[3] ? <span className="mk-pulso" aria-hidden="true" /> : null}
+      {contagem[3] || membros.some((p) => p.alerta) ? <span className="mk-pulso" aria-hidden="true" /> : null}
       <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
         <circle cx="22" cy="22" r="20" style={{ fill: "var(--lid-bg)" }} />
         {arcos}
