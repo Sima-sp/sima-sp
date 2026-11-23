@@ -13,6 +13,7 @@ public interface UsuarioMapper {
    @Mapping(target = "senhaHash", ignore = true) // a senha é guardada só como hash, no UsuarioService
    @Mapping(target = "id", ignore = true)
    @Mapping(target = "ativo", ignore = true)
+   @Mapping(target = "aceiteTermos", ignore = true)
    Usuario paraEntidadeUsuario(CriarUsuarioRequest request);
 
    UsuarioResponse paraUsuarioResponse(Usuario entidade);

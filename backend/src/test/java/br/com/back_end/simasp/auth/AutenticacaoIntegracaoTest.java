@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Cadastro, login, rotas protegidas e o administrador inicial, contra o backend de verdade
- * (MySQL do CI, migrações V1 a V3, segurança completa). Usa só o HttpClient do Java.
+ * (MySQL do CI, todas as migrações, segurança completa). Usa só o HttpClient do Java.
  */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -66,7 +66,8 @@ class AutenticacaoIntegracaoTest {
     private HttpResponse<String> cadastrar(String email, String telefone, String senha) throws Exception {
         return post("/usuarios", """
                 {"email": "%s", "telefone": "%s", "senha": "%s",
-                 "latitude": -23.515200, "longitude": -46.584100, "permissaoAlerta": true}
+                 "latitude": -23.515200, "longitude": -46.584100, "permissaoAlerta": true,
+                 "aceiteTermos": true}
                 """.formatted(email, telefone, senha));
     }
 
@@ -119,7 +120,7 @@ class AutenticacaoIntegracaoTest {
         HttpResponse<String> alterado = enviar("PATCH", "/usuarios/me", token,
                 "{\"telefone\": \"" + telefone + "\", \"permissaoAlerta\": false}");
         assertThat(alterado.statusCode()).as(alterado.body()).isEqualTo(200);
-        assertThat(alterado.body()).contains(telefone).contains("\"permissaoAlerta\":false").contains("-23.5152");
+        assertThat(alterado.body()).contains(telefone).contains("\"permissaoAlerta\":false").contains("-23.515").doesNotContain("-23.5152");
 
         HttpResponse<String> soLatitude = enviar("PATCH", "/usuarios/me", token, "{\"latitude\": -23.5}");
         assertThat(soLatitude.statusCode()).isEqualTo(400);
@@ -147,6 +148,76 @@ class AutenticacaoIntegracaoTest {
         HttpResponse<String> desativada = enviar("PATCH", "/admin/usuarios/" + email, admin, "{\"ativo\": false}");
         assertThat(desativada.statusCode()).as(desativada.body()).isEqualTo(200);
         assertThat(login(email, "senha-segura-1").statusCode()).isEqualTo(401);
+    }
+
+    private HttpResponse<String> excluir(String caminho, String token) throws Exception {
+        HttpRequest pedido = HttpRequest.newBuilder(URI.create(url(caminho)))
+                .header("Authorization", "Bearer " + token)
+                .DELETE()
+                .build();
+        return http.send(pedido, HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    void cadastroGuardaLocalizacaoComTresCasas() throws Exception {
+        HttpResponse<String> cadastro = cadastrar(emailNovo(), telefoneNovo(), "senha-segura-1");
+        assertThat(cadastro.statusCode()).as(cadastro.body()).isEqualTo(201);
+        assertThat(cadastro.body()).contains("-23.515").doesNotContain("-23.5152")
+                .contains("-46.584").doesNotContain("-46.5841");
+    }
+
+    @Test
+    void cadastroSemAceiteDa400() throws Exception {
+        HttpResponse<String> semAceite = post("/usuarios", """
+                {"email": "%s", "telefone": "%s", "senha": "senha-segura-1",
+                 "latitude": -23.5, "longitude": -46.6, "permissaoAlerta": true, "aceiteTermos": false}
+                """.formatted(emailNovo(), telefoneNovo()));
+        assertThat(semAceite.statusCode()).as(semAceite.body()).isEqualTo(400);
+        assertThat(semAceite.body()).contains("aceiteTermos");
+    }
+
+    @Test
+    void excluirContaDerrubaTokenELogin() throws Exception {
+        String email = emailNovo();
+        cadastrar(email, telefoneNovo(), "senha-segura-1");
+        String token = token(login(email, "senha-segura-1"));
+
+        HttpResponse<String> excluida = excluir("/usuarios/me", token);
+        assertThat(excluida.statusCode()).as(excluida.body()).isEqualTo(204);
+
+        assertThat(get("/usuarios/me", token).statusCode()).isEqualTo(401);
+        assertThat(login(email, "senha-segura-1").statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void contaDesativadaPerdeOTokenNaHora() throws Exception {
+        String email = emailNovo();
+        cadastrar(email, telefoneNovo(), "senha-segura-1");
+        String token = token(login(email, "senha-segura-1"));
+        String admin = token(login("admin.teste@simasp.local", "senha-do-admin-123"));
+
+        enviar("PATCH", "/admin/usuarios/" + email, admin, "{\"ativo\": false}");
+
+        assertThat(get("/usuarios/me", token).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void cincoSenhasErradasBloqueiamComRetryAfter() throws Exception {
+        String email = emailNovo();
+        cadastrar(email, telefoneNovo(), "senha-segura-1");
+
+        for (int i = 0; i < 5; i++) {
+            assertThat(login(email, "errada-" + i + "-xyz").statusCode()).isEqualTo(401);
+        }
+
+        HttpResponse<String> bloqueado = login(email, "senha-segura-1");
+        assertThat(bloqueado.statusCode()).as(bloqueado.body()).isEqualTo(429);
+        assertThat(bloqueado.headers().firstValue("Retry-After")).isPresent();
+
+        // Outra conta do mesmo IP continua entrando (o limite por IP é maior).
+        String outro = emailNovo();
+        cadastrar(outro, telefoneNovo(), "senha-segura-1");
+        assertThat(login(outro, "senha-segura-1").statusCode()).isEqualTo(200);
     }
 
     @Test
