@@ -12,7 +12,8 @@ import { useNavigate } from "react-router";
 import { usePontos } from "../dados/PontosContexto";
 import { resumirBairros } from "../dados/bairros";
 import { semAcento } from "../dados/niveis";
-import { compararPorGravidade, linhaSituacao, nivelVisivel } from "../dados/modelo";
+import { compararPorGravidade, linhaSituacao, nivelVisivel, tituloDoPonto } from "../dados/modelo";
+import { CONFIG } from "../config";
 import { useRotas } from "../rotas/RotaContexto";
 import { LUGARES } from "../rotas/lugares";
 import { useEnderecos } from "../rotas/useEnderecos";
@@ -47,7 +48,8 @@ export default function Busca() {
   const bueirosAchados = useMemo(() => {
     if (!termo) return [];
     return pontos
-      .filter((p) => normalizar(`${p.codigo} ${p.codigo.replace("-", "")} ${p.endereco ?? ""} ${p.bairro}`).includes(termo))
+      // O código entra de três jeitos ("VG-01", "VG01", "VG 01"), para achar como a pessoa digitar.
+      .filter((p) => normalizar(`${p.codigo} ${p.codigo.replace(/[-_]/g, "")} ${p.codigo.replace(/[-_]/g, " ")} ${p.endereco ?? ""} ${p.bairro}`).includes(termo))
       .sort(compararPorGravidade)
       .slice(0, 8);
   }, [pontos, termo]);
@@ -57,6 +59,13 @@ export default function Busca() {
   const emAlerta = useMemo(
     () => pontos.filter((p) => (nivelVisivel(p, agora) ?? 0) >= 3).sort(compararPorGravidade).slice(0, 6),
     [pontos, agora],
+  );
+
+  // O sensor de bancada (o protótipo com o balde), quando o backend o devolve: fica no topo da
+  // busca sem texto, para quem apresenta chegar nele em dois toques.
+  const bancada = useMemo(
+    () => pontos.find((p) => p.codigo.toLowerCase() === CONFIG.sensorDeBancada.toLowerCase()) ?? null,
+    [pontos],
   );
 
   const abrirNoMapa = (id) => navegar({ pathname: "/", search: `?ponto=${encodeURIComponent(id)}` });
@@ -94,7 +103,7 @@ export default function Busca() {
     <button key={p.id} type="button" className="row row-2" onClick={() => abrirNoMapa(p.id)}>
       <Tampa nivel={nivelVisivel(p, agora)} tamanho={30} />
       <span className="row-k">
-        Bueiro {p.codigo}
+        {tituloDoPonto(p)}
         <span className="row-sub">{p.endereco ? `${p.endereco} · ${p.bairro}` : p.bairro}</span>
         <span className="row-sub">{linhaSituacao(p, agora)}</span>
       </span>
@@ -167,6 +176,12 @@ export default function Busca() {
 
       {termo ? null : (
         <>
+          {bancada ? (
+            <>
+              <h2 className="grp-t">Sensor de bancada</h2>
+              <div className="grp">{linhaBueiro(bancada)}</div>
+            </>
+          ) : null}
           {emAlerta.length ? (
             <>
               <h2 className="grp-t">Em nível alto ou crítico agora</h2>

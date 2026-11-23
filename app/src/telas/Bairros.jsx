@@ -9,7 +9,7 @@ import { usePontos } from "../dados/PontosContexto";
 import { resumirBairros } from "../dados/bairros";
 import { ROTULO_AVISO, avisosPorRegiao, fraseDaRegiao } from "../dados/regioes";
 import { ROTULO_NIVEL } from "../dados/niveis";
-import { milimetros, nivelVisivel, porcento, resumoPrevisao } from "../dados/modelo";
+import { milimetros, motivoSemLeitura, nivelVisivel, porcento, resumoPrevisao } from "../dados/modelo";
 import { SeloNivel, Tampa } from "../componentes/Tampa";
 import { CabecalhoTela, Tela } from "../componentes/Tela";
 import { IconeSeta } from "../componentes/Icones";
@@ -96,7 +96,7 @@ export default function Bairros() {
                 <span className="row-sub">{p.endereco ?? p.bairro}</span>
                 {previsao.tipo === "probabilidade" ? null : <span className="row-sub">{previsao.titulo}</span>}
               </span>
-              <span className="row-v mono">{p.agua === null ? "—" : porcento(p.agua)}</span>
+              <span className="row-v mono">{motivoSemLeitura(p, agora) ? "—" : porcento(p.agua)}</span>
               <span className="row-chev"><IconeSeta pequeno /></span>
             </button>
           );

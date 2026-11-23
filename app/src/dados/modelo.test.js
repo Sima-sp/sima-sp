@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 
 import { nivelDeTexto, rotuloNivel } from "./niveis.js";
 import {
-  codigoDoPonto, fatosDoCartao, haQuanto, lerData, linhaSituacao, normalizarPrevisao, resumoLeitura, resumoPrevisao, separarVizinhanca,
-  statusAgora, textoProbabilidade,
+  centimetros, codigoDoPonto, fatosDoCartao, haQuanto, lerData, linhaSituacao, motivoSemLeitura, normalizarPrevisao, resumoLeitura,
+  resumoPrevisao, separarVizinhanca, statusAgora, textoProbabilidade, tituloDoPonto,
 } from "./modelo.js";
 import { resumirBairros } from "./bairros.js";
 
@@ -144,7 +144,7 @@ test("cartão do bueiro: dois números (água medida e chance prevista), com tra
   assert.equal(fatosDoCartao({ ...ponto, probabilidade: 0.0004 }, AGORA)[1].valor, "< 0,1%");
   // Sem leitura do sensor: a água vira traço, a previsão continua.
   assert.deepEqual(valores({ ...ponto, agua: null, semLeituraSensor: true }), ["Água no bueiro: —", "Chance em 3 h: 3,4%"]);
-  assert.equal(fatosDoCartao({ ...ponto, statusSensor: "INATIVO" }, AGORA)[0].descricao, "Água: sem leitura do sensor");
+  assert.equal(fatosDoCartao({ ...ponto, statusSensor: "INATIVO" }, AGORA)[0].descricao, "Água: sensor inativo");
   // Sem a IA (regras) mostra o nível; previsão vencida ou ausente vira traço.
   assert.equal(valores({ ...ponto, probabilidade: null })[1], "Risco em 3 h: Alto");
   assert.equal(valores({ ...ponto, validaAte: emMinutos(-1) })[1], "Chance em 3 h: —");
@@ -170,4 +170,84 @@ test("bairros: contagem por nível e ordem do pior para o mais tranquilo", () =>
   const lapa = bairros[2];
   assert.equal(lapa.semPrevisao, 1);
   assert.equal(lapa.total, 3);
+});
+
+/* ───────────── Dados reais do sensor (#38) ───────────── */
+
+/** Um item de /previsoes como o backend manda desde 16/11/2026 (PrevisaoResponse completo). */
+const ITEM_NOVO = {
+  sensorId: 137, latitude: -23.527245, longitude: -46.596878, vizinhanca: "Marginal Tietê — Vila Maria / Vila Guilherme",
+  status: "VALIDA", probabilidadeAlagamento: 0.004, nivelRisco: "MEDIO", nivelRiscoModelo: "BAIXO", janelaHoras: 3,
+  geradaEm: "2026-10-06T11:58:00-03:00", validaAte: "2026-10-06T12:28:00-03:00", horaReferencia: "2026-10-06T11:00:00-03:00",
+  medicaoTransbordando: false, ajusteSensorAplicado: true, semLeituraSensor: false, motivosAjuste: [],
+  chuvaRecente3hMm: 4.2, chuvaPrevista3hMm: 1, origem: "MODELO", modeloVersao: "v1", simulada: false,
+  nivelAgua: 62.5, distanciaCm: 35, dataLeitura: "2026-10-06T11:57:00-03:00", statusSensor: "ATIVO", codigo: "bueiro_01",
+};
+
+test("formato novo: código do backend, distância medida e datas com fuso", () => {
+  const ponto = normalizarPrevisao(ITEM_NOVO);
+  assert.equal(ponto.codigo, "bueiro_01");
+  assert.equal(ponto.agua, 62.5);
+  assert.equal(ponto.distanciaCm, 35);
+  assert.equal(ponto.statusSensor, "ATIVO");
+  assert.equal(ponto.leituraEm.toISOString(), "2026-10-06T14:57:00.000Z");
+  assert.equal(ponto.probabilidadeSemSensor, null); // o backend não manda a chance antes do sensor
+  assert.equal(motivoSemLeitura(ponto, AGORA), null);
+  assert.equal(tituloDoPonto(ponto), "Bueiro 01");
+  assert.equal(fatosDoCartao(ponto, AGORA)[0].valor, "63%");
+});
+
+test("formato antigo (sem os campos do sensor): continua abrindo, com 'sem leitura' e código pela sigla", () => {
+  const { nivelAgua, distanciaCm, dataLeitura, statusSensor, codigo, ...antigo } = ITEM_NOVO;
+  const ponto = normalizarPrevisao(antigo);
+  assert.equal(ponto.codigo, "VM-137");
+  assert.equal(ponto.agua, null);
+  assert.equal(ponto.distanciaCm, null);
+  assert.equal(motivoSemLeitura(ponto, AGORA), "sem-leitura");
+  assert.equal(tituloDoPonto(ponto), "Bueiro VM-137");
+});
+
+test("chance antes do sensor: se o backend mandar probabilidadeModelo, o app guarda", () => {
+  assert.equal(normalizarPrevisao({ ...ITEM_NOVO, probabilidadeModelo: 0.001 }).probabilidadeSemSensor, 0.001);
+});
+
+test("sensor em manutenção e sem leitura: diz o motivo e não mostra número", () => {
+  const ponto = normalizarPrevisao({ ...ITEM_NOVO, statusSensor: "MANUTENCAO", nivelAgua: null, distanciaCm: null, dataLeitura: null, semLeituraSensor: true });
+  assert.equal(motivoSemLeitura(ponto, AGORA), "manutencao");
+  assert.equal(resumoLeitura(ponto, AGORA).detalhe, "Sensor em manutenção");
+  assert.equal(fatosDoCartao(ponto, AGORA)[0].valor, "—");
+  assert.match(fatosDoCartao(ponto, AGORA)[0].descricao, /manutenção/);
+  assert.match(linhaSituacao(ponto, AGORA), /sensor em manutenção/);
+});
+
+test("sensor em manutenção com leitura antiga guardada: o número não aparece", () => {
+  const ponto = normalizarPrevisao({ ...ITEM_NOVO, statusSensor: "MANUTENCAO" });
+  assert.equal(fatosDoCartao(ponto, AGORA)[0].valor, "—");
+});
+
+test("sensor inativo: sem leitura neste ponto", () => {
+  const ponto = normalizarPrevisao({ ...ITEM_NOVO, statusSensor: "INATIVO" });
+  assert.equal(motivoSemLeitura(ponto, AGORA), "inativo");
+  assert.equal(resumoLeitura(ponto, AGORA).tipo, "inativo");
+});
+
+test("leitura velha: o backend manda, mas o app não mostra o número como se fosse de agora", () => {
+  const ponto = normalizarPrevisao({ ...ITEM_NOVO, dataLeitura: "2026-10-06T09:57:00-03:00" }); // 2 h antes
+  assert.equal(motivoSemLeitura(ponto, AGORA), "velha");
+  assert.equal(fatosDoCartao(ponto, AGORA)[0].valor, "—");
+  assert.deepEqual(resumoLeitura(ponto, AGORA), { tipo: "sem-leitura", titulo: "Sem leitura recente", detalhe: "Última leitura há 2 h" });
+  assert.match(linhaSituacao(ponto, AGORA), /última leitura há 2 h/);
+});
+
+test("leitura recente vale mesmo se a previsão foi feita sem ela", () => {
+  const ponto = normalizarPrevisao({ ...ITEM_NOVO, semLeituraSensor: true });
+  assert.equal(motivoSemLeitura(ponto, AGORA), null);
+});
+
+test("título e centímetros", () => {
+  assert.equal(tituloDoPonto({ codigo: "VG-01" }), "Bueiro VG-01");
+  assert.equal(tituloDoPonto({ codigo: "BUEIRO-02" }), "Bueiro 02");
+  assert.equal(centimetros(35), "35 cm");
+  assert.equal(centimetros(23.46), "23,5 cm");
+  assert.equal(centimetros(null), "—");
 });

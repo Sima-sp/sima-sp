@@ -4,7 +4,7 @@
 //
 // Formato de um ponto:
 //   id                    identificador do sensor
-//   codigo                rótulo curto, ex.: "VG-01"
+//   codigo                rótulo curto, ex.: "VG-01" (o código do sensor no backend, quando ele manda)
 //   endereco, bairro      textos para a tela (endereco pode ser null)
 //   lat, lon              posição
 //   statusSensor          "ATIVO" | "INATIVO" | "MANUTENCAO" | null
@@ -13,7 +13,8 @@
 //   ajusteSensorAplicado  true = a leitura do sensor subiu o nível
 //   probabilidade         0 a 1, ou null (modo regras não devolve probabilidade)
 //   probabilidadeSemSensor  a chance só pela chuva e pelo lugar, quando a origem informa as duas
-//                         (hoje só a demonstração); serve para mostrar o quanto o sensor pesou
+//                         (a demonstração; o backend, se mandar `probabilidadeModelo`); serve para
+//                         mostrar o quanto o sensor pesou
 //   janelaHoras           horizonte da previsão (3)
 //   status                "VALIDA" | "DESATUALIZADA" | "SEM_PREVISAO"
 //   geradaEm, validaAte   Date ou null
@@ -24,6 +25,7 @@
 //   modeloVersao          versão do modelo de IA que gerou a previsão, ex.: "v1"
 //   agua                  nível da água lido pelo sensor, em %, ou null
 //                         (o sensor do SIMA mede só a água; o lixo saiu do projeto em 06/10/2026)
+//   distanciaCm           o que o sensor mediu de verdade: distância dele até a água, em cm, ou null
 //   leituraEm             Date ou null
 //   chuvaRecente3h, chuvaPrevista3h   mm, ou null
 //   historicoAgua         lista de % das últimas 12 h (opcional)
@@ -79,16 +81,20 @@ export function codigoDoPonto(bairro, id) {
 /**
  * Converte um item de GET /previsoes (PrevisaoResponse do backend) no formato do app.
  *
- * Campos que o backend manda hoje (conferido em 06/10/2026):
+ * Campos que o backend manda (PrevisaoResponse, conferido em 16/11/2026):
  *   sensorId, latitude, longitude, vizinhanca, status, probabilidadeAlagamento, nivelRisco,
  *   nivelRiscoModelo, janelaHoras, geradaEm, validaAte, horaReferencia, medicaoTransbordando,
  *   ajusteSensorAplicado, semLeituraSensor, motivosAjuste, chuvaRecente3hMm, chuvaPrevista3hMm,
- *   origem, modeloVersao, simulada.
+ *   origem, modeloVersao, simulada,
+ *   e, do sensor e da última leitura dele: nivelAgua (%), distanciaCm, dataLeitura, statusSensor
+ *   ("ATIVO" | "INATIVO" | "MANUTENCAO") e codigo (ex.: "bueiro_01").
  *
- * Campos que AINDA NÃO vêm e que a tela sabe mostrar assim que vierem (nomes sugeridos):
- *   statusSensor ("ATIVO" | "INATIVO" | "MANUTENCAO"), nivelAgua, dataLeitura.
- *   (Se o backend mandar porcentagemLixo, o app ignora: o sensor não mede lixo.)
- *   Sem eles o app mostra "Sem leitura" e não distingue sensor inativo de sensor em manutenção.
+ * A leitura vem mesmo quando é velha: quem decide se ela ainda vale é o app, pela `dataLeitura`
+ * (ver `motivoSemLeitura`). Um backend antigo, sem esses cinco campos, continua funcionando: o app
+ * mostra "Sem leitura" e monta o código pela sigla do bairro.
+ *
+ * Se um dia vier `probabilidadeModelo` (a chance antes do sensor), a tela do bueiro passa a
+ * mostrar as duas chances, como já faz na demonstração.
  *
  * Devolve null quando o item não tem id ou posição: sem isso não há o que pôr no mapa.
  */
@@ -103,7 +109,7 @@ export function normalizarPrevisao(item) {
 
   return {
     id: String(id),
-    codigo: codigoDoPonto(bairro, id),
+    codigo: typeof item.codigo === "string" && item.codigo.trim() ? item.codigo.trim() : codigoDoPonto(bairro, id),
     endereco,
     bairro: bairro || "Sem bairro",
     lat,
@@ -112,7 +118,7 @@ export function normalizarPrevisao(item) {
     nivel,
     nivelModelo: nivelDeTexto(item.nivelRiscoModelo),
     probabilidade: numero(item.probabilidadeAlagamento),
-    probabilidadeSemSensor: null, // o backend ainda não manda a chance antes e depois do sensor
+    probabilidadeSemSensor: numero(item.probabilidadeModelo),
     janelaHoras: numero(item.janelaHoras) ?? CONFIG.janelaHorasPadrao,
     status: item.status || (nivel ? "VALIDA" : "SEM_PREVISAO"),
     geradaEm: lerData(item.geradaEm),
@@ -124,6 +130,7 @@ export function normalizarPrevisao(item) {
     origem: item.origem ?? null,
     modeloVersao: item.modeloVersao ?? null,
     agua: numero(item.nivelAgua),
+    distanciaCm: numero(item.distanciaCm),
     leituraEm: lerData(item.dataLeitura),
     chuvaRecente3h: numero(item.chuvaRecente3hMm),
     chuvaPrevista3h: numero(item.chuvaPrevista3hMm),
@@ -231,7 +238,8 @@ export function resumoPrevisao(ponto, agora = new Date()) {
  * `descricao` (lida pelo leitor de tela) diz o motivo por extenso.
  */
 export function fatosDoCartao(ponto, agora = new Date()) {
-  const semSensor = ponto.statusSensor === "INATIVO" || ponto.agua === null || ponto.semLeituraSensor;
+  const motivo = motivoSemLeitura(ponto, agora);
+  const semSensor = motivo !== null;
   const status = statusAgora(ponto, agora);
   const janela = ponto.janelaHoras ?? CONFIG.janelaHorasPadrao;
   const chance = status === "VALIDA" ? textoProbabilidade(ponto.probabilidade) : null;
@@ -251,17 +259,47 @@ export function fatosDoCartao(ponto, agora = new Date()) {
 
   return [
     { id: "agua", rotulo: "Água no bueiro", valor: semSensor ? "—" : porcento(ponto.agua),
-      descricao: semSensor ? "Água: sem leitura do sensor" : `Água em ${porcento(ponto.agua)} da capacidade, medida pelo sensor` },
+      descricao: semSensor ? `Água: ${TEXTO_SEM_LEITURA[motivo].toLowerCase()}` : `Água em ${porcento(ponto.agua)} da capacidade, medida pelo sensor` },
     { id: "previsto", ...previsto },
   ];
 }
 
+/**
+ * Por que o app NÃO mostra o nível da água deste ponto como se fosse de agora, ou null quando mostra.
+ *
+ *   "inativo"      o sensor está desligado no cadastro
+ *   "manutencao"   o sensor está em manutenção (o backend recusa as leituras dele)
+ *   "sem-leitura"  nunca chegou leitura (ou o sensor não tem a profundidade cadastrada)
+ *   "velha"        a última leitura tem mais de 30 minutos: o número existe, mas não é de agora
+ *
+ * O backend manda a última leitura mesmo quando ela é velha; a régua é a `leituraEm`. Quando a
+ * origem não informa a hora (formato antigo), vale o que a previsão disse (`semLeituraSensor`).
+ */
+export function motivoSemLeitura(ponto, agora = new Date()) {
+  if (ponto.statusSensor === "INATIVO") return "inativo";
+  if (ponto.statusSensor === "MANUTENCAO") return "manutencao";
+  if (ponto.agua === null || ponto.agua === undefined) return "sem-leitura";
+  if (ponto.leituraEm) return leituraRecente(ponto, agora) ? null : "velha";
+  return ponto.semLeituraSensor ? "sem-leitura" : null;
+}
+
+/** A frase curta de cada motivo. */
+export const TEXTO_SEM_LEITURA = {
+  inativo: "Sensor inativo",
+  manutencao: "Sensor em manutenção",
+  "sem-leitura": "Sem leitura do sensor",
+  velha: "Sem leitura recente",
+};
+
 /** Resumo do lado "medido": leitura do sensor. */
 export function resumoLeitura(ponto, agora = new Date()) {
-  if (ponto.statusSensor === "INATIVO") return { tipo: "inativo", titulo: "Sensor inativo", detalhe: "Sem leitura neste ponto" };
-  if (ponto.agua === null || ponto.semLeituraSensor) {
-    const motivo = ponto.statusSensor === "MANUTENCAO" ? "Sensor em manutenção" : "Sensor sem leitura recente";
-    return { tipo: "sem-leitura", titulo: "Sem leitura", detalhe: motivo };
+  const motivo = motivoSemLeitura(ponto, agora);
+  if (motivo === "inativo") return { tipo: "inativo", titulo: "Sensor inativo", detalhe: "Sem leitura neste ponto" };
+  if (motivo === "velha") {
+    return { tipo: "sem-leitura", titulo: "Sem leitura recente", detalhe: `Última leitura ${haQuanto(ponto.leituraEm, agora)}` };
+  }
+  if (motivo) {
+    return { tipo: "sem-leitura", titulo: "Sem leitura", detalhe: motivo === "manutencao" ? "Sensor em manutenção" : "Sensor sem leitura recente" };
   }
   return { tipo: "leitura", titulo: `${porcento(ponto.agua)} de água`, detalhe: "Medido pelo sensor", quando: haQuanto(ponto.leituraEm, agora) };
 }
@@ -285,8 +323,23 @@ export function linhaSituacao(ponto, agora = new Date()) {
 
   if (ponto.statusSensor === "INATIVO") partes.push("sensor inativo");
   else if (ponto.statusSensor === "MANUTENCAO") partes.push("sensor em manutenção");
-  else if (ponto.leituraEm) partes.push(`leitura ${haQuanto(ponto.leituraEm, agora)}`);
+  else if (ponto.leituraEm) partes.push(`${leituraRecente(ponto, agora) ? "leitura" : "última leitura"} ${haQuanto(ponto.leituraEm, agora)}`);
   return partes.join(" · ");
+}
+
+/**
+ * Nome do ponto para títulos: "Bueiro VG-01". O sensor de bancada chama-se "bueiro_01" no backend;
+ * para não sair "Bueiro bueiro_01", o prefixo repetido cai: "Bueiro 01".
+ */
+export function tituloDoPonto(ponto) {
+  const semPrefixo = String(ponto.codigo).replace(/^bueiro[\s_-]*/i, "");
+  return `Bueiro ${semPrefixo || ponto.codigo}`;
+}
+
+/** "23,5 cm" */
+export function centimetros(valor) {
+  if (valor === null || valor === undefined) return "—";
+  return `${formatoNumero(valor % 1 === 0 ? 0 : 1).format(valor)} cm`;
 }
 
 /** Ordem de gravidade para listas: transbordando primeiro, depois nível, depois água. */
