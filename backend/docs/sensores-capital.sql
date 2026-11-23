@@ -161,7 +161,7 @@ AS novo
 ON DUPLICATE KEY UPDATE TX_VIZINHANCA = novo.TX_VIZINHANCA;
 
 -- Sensor de bancada: o código que o firmware manda. A profundidade e a distância de cheio do
--- balde entram depois da calibração (#55), por PATCH /admin/sensores/modificar-sensor/{id}/bancada
+-- balde entram depois da calibração (#55), por PATCH /admin/sensores/{id} (profundidadeCm e distanciaCheioCm)
 -- ou descomentando a linha abaixo. Depois, gere a chave em POST /admin/sensores/{id}/chave.
 UPDATE TBL_SENSOR SET TX_CODIGO = 'bueiro_01'
  WHERE NR_LATITUDE = -23.527245 AND NR_LONGITUDE = -46.596878

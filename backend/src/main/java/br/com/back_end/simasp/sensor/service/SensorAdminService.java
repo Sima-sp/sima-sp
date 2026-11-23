@@ -4,18 +4,14 @@ import br.com.back_end.simasp.exception.AlteracaoInvalidaException;
 import br.com.back_end.simasp.exception.LocalizacaoSensorDuplicadaException;
 import br.com.back_end.simasp.exception.RecursoExistenteException;
 import br.com.back_end.simasp.exception.RecursoNaoEncontradoException;
-import br.com.back_end.simasp.sensor.dto.AlterarBancadaSensor;
-import br.com.back_end.simasp.sensor.dto.AlterarLocalizacaoSensor;
+import br.com.back_end.simasp.sensor.dto.AtualizarSensorRequest;
 import br.com.back_end.simasp.sensor.dto.ChaveSensorResponse;
-import br.com.back_end.simasp.sensor.dto.AlterarStatusSensor;
 import br.com.back_end.simasp.sensor.dto.SensorRequest;
 import br.com.back_end.simasp.sensor.dto.SensorResponse;
 import br.com.back_end.simasp.sensor.entity.Sensor;
 import br.com.back_end.simasp.sensor.mapper.SensorMapper;
 import br.com.back_end.simasp.sensor.repository.SensorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,49 +56,34 @@ public class SensorAdminService {
         return mapper.paraSensorResponse(sensor);
     }
 
-    // Traz sensores em manutenção que estão dentro de um alcance máximo em metros num local específico
-    public Page<SensorResponse> buscarSensoresEmManutencaoProximos(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable paginacao)
-    {
-        var sensores = repository.sensoresManutencaoProximosDistancia(longitude, latitude, distanciaMetros, paginacao);
-
-        return sensores.map(mapper::paraSensorResponse);
-    }
-
-    // Traz sensores inativos que estão dentro de um alcance máximo em metros num local específico
-    public Page<SensorResponse> buscarSensoresInativosProximos(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable paginacao)
-    {
-        var sensores = repository.sensoresInativosProximosDistancia(longitude, latitude, distanciaMetros, paginacao);
-
-        return sensores.map(mapper::paraSensorResponse);
-    }
-
+    /** {@code PATCH /admin/sensores/{id}}: só os campos enviados mudam (#20). */
     @Transactional
-    public void atualizarLocalizacaoSensor(Long id, AlterarLocalizacaoSensor request)
+    public SensorResponse atualizarSensor(Long id, AtualizarSensorRequest request)
     {
         var sensor = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Sensor com id: " + id + "."));
 
-        sensor.setLatitude(request.latitude());
-        sensor.setLongitude(request.longitude());
-        sensor.setVizinhanca(request.vizinhanca());
-    }
-
-    @Transactional
-    public void atualizarStatusSensor(Long id, AlterarStatusSensor request)
-    {
-        var sensor = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Sensor com id: " + id + "."));
-
-        sensor.setStatus(request.status());
-    }
-
-
-
-
-    /** Código, profundidade e distância de cheio (#10). Campo nulo não muda. */
-    @Transactional
-    public SensorResponse atualizarBancada(Long id, AlterarBancadaSensor request)
-    {
-        var sensor = repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Sensor com id: " + id + "."));
-
+        if ((request.latitude() == null) != (request.longitude() == null))
+        {
+            throw new AlteracaoInvalidaException("Envie a latitude e a longitude juntas.");
+        }
+        if (request.latitude() != null
+                && !(request.latitude().compareTo(sensor.getLatitude()) == 0 && request.longitude().compareTo(sensor.getLongitude()) == 0))
+        {
+            if (repository.existsByLatitudeAndLongitude(request.latitude(), request.longitude()))
+            {
+                throw new LocalizacaoSensorDuplicadaException("Já existe um sensor na latitude " + request.latitude() + " e longitude " + request.longitude() + ".");
+            }
+            sensor.setLatitude(request.latitude());
+            sensor.setLongitude(request.longitude());
+        }
+        if (request.vizinhanca() != null)
+        {
+            sensor.setVizinhanca(request.vizinhanca());
+        }
+        if (request.status() != null)
+        {
+            sensor.setStatus(request.status());
+        }
         if (request.codigo() != null && !request.codigo().equals(sensor.getCodigo()))
         {
             if (repository.existsByCodigo(request.codigo()))

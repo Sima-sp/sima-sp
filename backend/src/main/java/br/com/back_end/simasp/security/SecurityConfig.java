@@ -152,7 +152,16 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/auth/login",
-                                "/usuarios/cadastro"
+                                "/usuarios"
+                        ).permitAll()
+
+                        // Documentação das rotas (#20).
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs",
+                                "/v3/api-docs/**"
                         ).permitAll()
 
                         // Catálogo público.
