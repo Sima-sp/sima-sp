@@ -31,7 +31,7 @@ import { Tampa } from "../componentes/Tampa";
 import { CONFIG } from "../config";
 import {
   ALCANCE, LIMITES_PERCENTUAIS, MEDIDAS_PADRAO, arrumarMedidas, distanciaDoPercentual, distanciaFirme, escalaDoDesenho, lerLeitura,
-  lerLimitesDoServidor, medidasValidas, mesmasMedidas, naZonaCega, nivelDaDistancia, percentualDaAgua, tempoAteTransbordar, textoDaDistancia,
+  lerRegraDoServidor, medidasValidas, mesmaRegra, mesmasMedidas, naZonaCega, nivelDaDistancia, percentualDaAgua, tempoAteTransbordar, textoDaDistancia,
   textoDoPercentual, textoDoTempo,
 } from "./nivel";
 import { buscarNoSistema, resumoDoSistema, temBackend } from "./sistema";
@@ -105,8 +105,8 @@ export default function Painel() {
   const medidas = sistema?.medidas ?? ajustes.medidas;
   const medidasDoBackend = Boolean(sistema?.medidas);
   const [medidasDigitadas, setMedidasDigitadas] = useState(() => emTexto(ajustes.medidas));
-  // Os limites em cm do servidor do sensor (Node): só para avisar que ele usa outra regra.
-  const [limitesDoServidor, setLimitesDoServidor] = useState(null);
+  // A regra do servidor do sensor (Node): para conferir se ele dá o mesmo nível que o painel (#41).
+  const [regraDoServidor, setRegraDoServidor] = useState(null);
   const [resposta, setResposta] = useState(undefined); // a última resposta crua do servidor
   const [permissao, setPermissao] = useState("desconhecida"); // o que o navegador diz sobre acessar a rede local
   const [buscaDesde, setBuscaDesde] = useState(0); // quando a página começou a procurar o servidor
@@ -159,7 +159,7 @@ export default function Painel() {
       return undefined;
     }
     buscarLimites(aqui.origin)
-      .then((recebidos) => { if (vivo) setServidorProprio(lerLimitesDoServidor(recebidos) !== null); })
+      .then((recebidos) => { if (vivo) setServidorProprio(lerRegraDoServidor(recebidos) !== null); })
       .catch(() => { if (vivo) setServidorProprio(false); });
     return () => { vivo = false; };
   }, []);
@@ -207,8 +207,8 @@ export default function Painel() {
           // Uma vez por conexão (e de novo se o servidor cair e voltar, pois pode ter mudado).
           pedirLimites = false;
           buscarLimites(endereco)
-            .then((recebidos) => { if (vivo) setLimitesDoServidor(lerLimitesDoServidor(recebidos)); })
-            .catch(() => { if (vivo) setLimitesDoServidor(null); });
+            .then((recebidos) => { if (vivo) setRegraDoServidor(lerRegraDoServidor(recebidos)); })
+            .catch(() => { if (vivo) setRegraDoServidor(null); });
         }
         const lida = lerLeitura(crua);
         if (!lida) {
@@ -530,11 +530,7 @@ export default function Painel() {
                   : <button type="button" className="btn btn-line ps-desconectar" onClick={voltarAsMedidasDeExemplo}>Voltar às medidas de exemplo</button>}
               </>
             )}
-            {limitesDoServidor ? (
-              <p className="micro">
-                O servidor do sensor e o LED da placa ainda classificam por centímetros, com números próprios (o servidor: crítico até {limitesDoServidor.critico} cm, alerta até {limitesDoServidor.alerta}, atenção até {limitesDoServidor.atencao}). O nível que vale é este, em %.
-              </p>
-            ) : null}
+            <RegraDoServidor regra={regraDoServidor} medidas={medidas} />
           </div>
           <div className="plate ps-ajuste">
             <p className="small"><b>O que o servidor respondeu</b></p>
@@ -553,6 +549,35 @@ export default function Painel() {
  * mede: dali para cima a medida não é confiável. Sem medida, a água fica no fundo, apagada, e a
  * régua some.
  */
+/**
+ * O servidor do sensor dá o mesmo nível que este painel? (#41) Ele faz a mesma conta em %, com as
+ * medidas do .env dele; se forem outras, os dois discordam para a mesma água.
+ */
+function RegraDoServidor({ regra, medidas }) {
+  if (!regra) return null;
+  if (regra.regra === "cm") {
+    return (
+      <p className="micro">
+        Este servidor do sensor é de uma versão antiga, que classifica por centímetros, com números próprios. Atualize a pasta iot/servidor-sensor para ele dar o mesmo nível que este painel. O nível que vale é este, em %.
+      </p>
+    );
+  }
+  if (mesmaRegra(regra, medidas)) {
+    return <p className="micro">O servidor do sensor faz a mesma conta, com as mesmas medidas: os dois dão o mesmo nível para a mesma água.</p>;
+  }
+  const { limites } = regra;
+  const outrosLimites = limites.medio !== LIMITES_PERCENTUAIS.medio || limites.alto !== LIMITES_PERCENTUAIS.alto || limites.critico !== LIMITES_PERCENTUAIS.critico;
+  return (
+    <p className="micro" role="status">
+      {mesmasMedidas(regra.medidas, medidas)
+        ? `O servidor do sensor usa outros limites (médio a partir de ${limites.medio} %, alto a partir de ${limites.alto} %, crítico em ${limites.critico} %).`
+        : `O servidor do sensor está com outras medidas: fundo a ${textoDaDistancia(regra.medidas.profundidade)} e cheio a ${textoDaDistancia(regra.medidas.cheio)}${regra.deExemplo ? " (as de exemplo)" : ""}. Elas ficam no .env dele (SENSOR_PROFUNDIDADE_CM e SENSOR_CHEIO_CM).`}
+      {outrosLimites && !mesmasMedidas(regra.medidas, medidas) ? " Os limites em % também são outros." : ""}
+      {" "}Assim, os dois dão níveis diferentes para a mesma água. O nível que vale é este.
+    </p>
+  );
+}
+
 function BueiroEmCorte({ distancia, nivel, medidas, escala }) {
   const SENSOR = 62; // onde o sensor termina: dali para baixo ele mede
   const FUNDO = 190; // a água mais baixa que o desenho mostra

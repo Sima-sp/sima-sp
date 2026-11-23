@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ALCANCE, LIMITES_PERCENTUAIS, MEDIDAS_PADRAO, arrumarMedidas, distanciaDoPercentual, distanciaFirme, distanciaValida, escalaDoDesenho, lerLeitura,
-  lerLimitesDoServidor, lerMedidasDoBackend, mediana, medidasValidas, mesmasMedidas, naZonaCega, nivelDaDistancia, nivelDoPercentual, percentualDaAgua,
+  lerMedidasDoBackend, lerRegraDoServidor, mediana, medidasValidas, mesmaRegra, mesmasMedidas, naZonaCega, nivelDaDistancia, nivelDoPercentual, percentualDaAgua,
   tempoAteTransbordar, textoDaDistancia, textoDoPercentual, textoDoTempo,
 } from "./nivel.js";
 import { ENDERECO_PADRAO, arrumarEndereco, ehEsteComputador, podeSerBloqueado } from "./servidor.js";
@@ -84,9 +84,24 @@ test("medidas do backend (GET /sensores/{id}): só quando o sensor foi cadastrad
   assert.equal(lerMedidasDoBackend(null), null);
 });
 
-test("os limites do servidor do sensor (em cm) são lidos só para reconhecer o servidor", () => {
-  assert.deepEqual(lerLimitesDoServidor({ zonaCega: 15, critico: 20, alerta: 30, atencao: 45 }), { critico: 20, alerta: 30, atencao: 45 });
-  for (const ruim of [null, undefined, {}, "ok", { critico: 30, alerta: 20, atencao: 45 }, { critico: 20, alerta: 30 }]) assert.equal(lerLimitesDoServidor(ruim), null);
+test("a regra do servidor do sensor: reconhece o servidor e confere se dá o mesmo nível (#41)", () => {
+  const resposta = {
+    regra: "percentual", profundidadeCm: 60, cheioCm: 25, deExemplo: true, medio: 50, alto: 80, critico: 100,
+    emCm: { medio: 42.5, alto: 32, critico: 25 }, zonaCegaCm: 20, folgaCm: 2,
+  };
+  const regra = lerRegraDoServidor(resposta);
+  assert.deepEqual(regra, { regra: "percentual", medidas: { profundidade: 60, cheio: 25 }, deExemplo: true, limites: { medio: 50, alto: 80, critico: 100 } });
+  assert.equal(mesmaRegra(regra, MEDIDAS_PADRAO), true);
+  assert.equal(mesmaRegra(regra, { profundidade: 40, cheio: 20 }), false, "outras medidas, outro nível para a mesma água");
+  assert.equal(mesmaRegra(lerRegraDoServidor({ ...resposta, alto: 75 }), MEDIDAS_PADRAO), false, "outros limites");
+  // Servidor de antes de #41, com limites em cm: reconhecido, mas não dá o mesmo nível.
+  const antigo = lerRegraDoServidor({ zonaCega: 15, critico: 20, alerta: 30, atencao: 45 });
+  assert.deepEqual(antigo, { regra: "cm" });
+  assert.equal(mesmaRegra(antigo, MEDIDAS_PADRAO), false);
+  for (const ruim of [null, undefined, {}, "ok", { critico: 30, alerta: 20, atencao: 45 }, { critico: 20, alerta: 30 },
+    { ...resposta, cheioCm: 70 }, { ...resposta, profundidadeCm: "60" }, { ...resposta, medio: 90 }]) {
+    assert.equal(lerRegraDoServidor(ruim), null, JSON.stringify(ruim));
+  }
 });
 
 test("a distância mostrada é a mediana das leituras válidas recentes", () => {

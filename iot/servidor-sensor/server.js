@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
-const { LIMITES, classificarComFolga } = require("./niveis");
+const { MEDIDAS_PADRAO, classificarComFolga, descreverRegra, lerMedidas } = require("./niveis");
 const { FiltroDeSalto } = require("./filtro");
 const { Repasse } = require("./repasse");
 
@@ -23,8 +23,17 @@ const PARADO_MS = 10_000;
  * @param {() => number} [opcoes.agora]  relógio, em ms (os testes trocam)
  * @param {FiltroDeSalto} [opcoes.filtro] filtro de eco falso
  * @param {number} [opcoes.checarParadoMs]  de quanto em quanto tempo o /api/stream confere se o sensor parou
+ * @param {{ profundidade: number, cheio: number }} [opcoes.medidas]  medidas do bueiro, em cm (#41)
+ * @param {boolean} [opcoes.deExemplo]  true se as medidas são as de exemplo (o .env não tem as da bancada)
  */
-function criarApp({ repasse, agora = () => Date.now(), filtro = new FiltroDeSalto(), checarParadoMs = 1000 } = {}) {
+function criarApp({
+  repasse,
+  agora = () => Date.now(),
+  filtro = new FiltroDeSalto(),
+  checarParadoMs = 1000,
+  medidas = MEDIDAS_PADRAO,
+  deExemplo = medidas === MEDIDAS_PADRAO,
+} = {}) {
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -66,12 +75,12 @@ function criarApp({ repasse, agora = () => Date.now(), filtro = new FiltroDeSalt
     ultima = {
       device: aparelho,
       distancia,
-      ...classificarComFolga(distancia, ultima?.device === aparelho ? ultima.status : null),
+      ...classificarComFolga(distancia, ultima?.device === aparelho ? ultima.status : null, medidas),
       em: new Date(em).toISOString(),
     };
     avisouParado = false;
 
-    console.log(`[${ultima.titulo.toUpperCase()}] ${ultima.distancia} cm`);
+    console.log(`[${ultima.titulo.toUpperCase()}] ${ultima.distancia} cm (${ultima.percentual} %)`);
 
     transmitir();
     res.sendStatus(200);
@@ -82,7 +91,7 @@ function criarApp({ repasse, agora = () => Date.now(), filtro = new FiltroDeSalt
 
   // A página web consulta aqui
   app.get("/api/leitura", (req, res) => res.json(comIdade()));
-  app.get("/api/limites", (req, res) => res.json(LIMITES));
+  app.get("/api/limites", (req, res) => res.json(descreverRegra(medidas, deExemplo)));
   app.get("/api/estado", (req, res) => {
     const leitura = comIdade();
     res.json({
@@ -132,6 +141,8 @@ function lerConfiguracao(env = process.env) {
     // O `device` que o firmware manda e o código do sensor no backend (o dono da chave).
     codigo: (env.SENSOR_CODIGO || "").trim() || "bueiro_01",
     intervaloMs: Number.isFinite(intervaloS) && intervaloS > 0 ? intervaloS * 1000 : 30_000,
+    // Fundo e cheio do bueiro (#41): os mesmos do sensor no backend e do firmware.
+    ...lerMedidas(env),
   };
 }
 
@@ -145,6 +156,7 @@ if (require.main === module) {
     chave: cfg.chave,
     codigo: cfg.codigo,
     intervaloMs: cfg.intervaloMs,
+    medidas: cfg.medidas,
   });
   if (repasse.ativo) {
     if (!cfg.chave) console.warn("[repasse] SENSOR_CHAVE vazia: o backend vai recusar as leituras (401).");
@@ -156,7 +168,15 @@ if (require.main === module) {
     console.log("Sem BACKEND_URL: só o painel da bancada, nada vai ao backend.");
   }
 
-  criarApp({ repasse }).listen(cfg.porta, "0.0.0.0", () => console.log(`SIMA rodando na porta ${cfg.porta}`));
+  if (cfg.aviso) console.warn(`[medidas] ${cfg.aviso}`);
+  const { profundidade, cheio } = cfg.medidas;
+  console.log(
+    cfg.deExemplo
+      ? `Medidas do bueiro DE EXEMPLO: fundo a ${profundidade} cm, cheio a ${cheio} cm. Meça a bancada e preencha o .env (#55).`
+      : `Medidas do bueiro: fundo a ${profundidade} cm, cheio a ${cheio} cm.`,
+  );
+
+  criarApp({ repasse, medidas: cfg.medidas, deExemplo: cfg.deExemplo }).listen(cfg.porta, "0.0.0.0", () => console.log(`SIMA rodando na porta ${cfg.porta}`));
 }
 
 module.exports = { criarApp, lerConfiguracao, DISTANCIA_MAX_CM, PARADO_MS };

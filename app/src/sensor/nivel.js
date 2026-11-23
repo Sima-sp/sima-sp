@@ -24,8 +24,9 @@
 // bancada está cadastrado lá com elas; sem isso, de "Ajustes do sensor" (guardadas no aparelho).
 // Os limites em % são os de `sensor.nivel.*` no backend (application.properties).
 //
-// O servidor do sensor (o programa em Node do grupo do IoT) e o LED do firmware ainda classificam
-// por centímetros, com números próprios: a página não os usa, só avisa (#41, #55).
+// O servidor do sensor (o programa em Node do grupo do IoT) faz a mesma conta, com as medidas do
+// .env dele, e o LED do firmware também, com as medidas gravadas na placa. A página confere as do
+// servidor (GET /api/limites) e avisa se forem outras (#41, #55).
 //
 // Só faz contas: não fala com o servidor (isso é do servidor.js) nem com a tela.
 
@@ -76,19 +77,37 @@ export function mesmasMedidas(a, b) {
 }
 
 /**
- * Lê a resposta de GET /api/limites do servidor do sensor:
- *   { "zonaCega": 15, "critico": 20, "alerta": 30, "atencao": 45 }
- * Serve para saber que quem respondeu é mesmo o servidor do sensor, e para avisar que ele usa
- * outra regra (em cm). Não entra na conta do nível.
- * @returns {{ critico: number, alerta: number, atencao: number }|null}  null se a resposta não é a esperada
+ * Lê a resposta de GET /api/limites do servidor do sensor (#41):
+ *   { "regra": "percentual", "profundidadeCm": 60, "cheioCm": 25, "deExemplo": true,
+ *     "medio": 50, "alto": 80, "critico": 100, ... }
+ * Serve para reconhecer o servidor do sensor e para conferir se ele faz a mesma conta que este
+ * painel. Um servidor de antes de #41 (limites em cm: { "critico": 20, "alerta": 30, "atencao": 45 })
+ * também é reconhecido, como `{ regra: "cm" }`. Não entra na conta do nível.
+ * @returns {{ regra: "percentual", medidas: { profundidade: number, cheio: number }, deExemplo: boolean,
+ *   limites: { medio: number, alto: number, critico: number } } | { regra: "cm" } | null}
+ *   null se a resposta não é a esperada
  */
-export function lerLimitesDoServidor(resposta) {
+export function lerRegraDoServidor(resposta) {
   const positivo = (v) => (numero(v) !== null && v > 0 ? v : null);
+  if (resposta?.regra === "percentual") {
+    const medidas = { profundidade: numero(resposta.profundidadeCm), cheio: numero(resposta.cheioCm) };
+    const limites = { medio: positivo(resposta.medio), alto: positivo(resposta.alto), critico: positivo(resposta.critico) };
+    if (medidas.profundidade === null || medidas.cheio === null || !(medidas.cheio < medidas.profundidade)) return null;
+    if (limites.medio === null || limites.alto === null || limites.critico === null || !(limites.medio < limites.alto && limites.alto <= limites.critico)) return null;
+    return { regra: "percentual", medidas, deExemplo: resposta.deExemplo === true, limites };
+  }
   const critico = positivo(resposta?.critico);
   const alerta = positivo(resposta?.alerta);
   const atencao = positivo(resposta?.atencao);
   if (critico === null || alerta === null || atencao === null || !(critico < alerta && alerta < atencao)) return null;
-  return { critico, alerta, atencao };
+  return { regra: "cm" };
+}
+
+/** true se o servidor do sensor dá o mesmo nível que este painel: mesma conta, medidas e limites. */
+export function mesmaRegra(doServidor, medidas) {
+  return doServidor?.regra === "percentual" && mesmasMedidas(doServidor.medidas, medidas)
+    && doServidor.limites.medio === LIMITES_PERCENTUAIS.medio && doServidor.limites.alto === LIMITES_PERCENTUAIS.alto
+    && doServidor.limites.critico === LIMITES_PERCENTUAIS.critico;
 }
 
 /**

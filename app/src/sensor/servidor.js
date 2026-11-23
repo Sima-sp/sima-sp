@@ -3,7 +3,7 @@
 // O caminho da leitura no protótipo:
 //   ESP32 ──Wi-Fi──▶ POST /api/leitura  (servidor do sensor, porta 3000)
 //   esta tela ─────▶ GET  /api/leitura  (a última leitura, ou null se ainda não chegou nenhuma)
-//                    GET  /api/limites  (as distâncias que separam os níveis)
+//                    GET  /api/limites  (a regra do nível: medidas do bueiro e limites em %)
 // A tela pergunta uma vez por segundo. O servidor também oferece /api/stream (envio contínuo);
 // a pergunta repetida foi escolhida por ser mais simples de acompanhar: cada resposta diz, ao
 // mesmo tempo, que o servidor está de pé e qual é a última leitura.
@@ -100,7 +100,7 @@ async function pedir(url, espera = ESPERA) {
 
 /** A última leitura guardada no servidor (o objeto cru), ou null se ainda não chegou nenhuma. */
 export const buscarLeitura = (endereco, espera) => pedir(`${endereco}/api/leitura`, espera);
-/** Os limites de distância que o servidor usa para classificar. */
+/** A regra que o servidor usa para dar o nível (medidas do bueiro e limites em %). */
 export const buscarLimites = (endereco) => pedir(`${endereco}/api/limites`);
 
 /**
