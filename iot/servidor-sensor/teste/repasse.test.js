@@ -87,7 +87,7 @@ test("a primeira leitura vai na hora e as seguintes esperam a janela", async () 
 
 test("mudança de faixa manda na hora, sem esperar a janela", async () => {
   const t = montar();
-  t.r.receber({ codigo: "bueiro_01", distanciaCm: 60, em: t.agora() }); // normal
+  t.r.receber({ codigo: "bueiro_01", distanciaCm: 60, em: t.agora() }); // baixo
   await esvaziar();
   for (const d of [18, 18]) {
     t.passar(3000);
@@ -112,12 +112,12 @@ test("um pico isolado não troca a faixa", async () => {
 
 test("leitura oscilando na fronteira não vira um envio a cada leitura", async () => {
   const t = montar();
-  t.r.receber({ codigo: "bueiro_01", distanciaCm: 46, em: t.agora() });
+  t.r.receber({ codigo: "bueiro_01", distanciaCm: 43.5, em: t.agora() });
   await esvaziar();
-  // 44/46 cm ficam na fronteira entre normal e atenção (45 cm). Uma leitura por segundo, 20 s.
+  // 41,5/43,5 cm ficam na fronteira entre baixo e médio (42,5 cm). Uma leitura por segundo, 20 s.
   for (let i = 0; i < 20; i += 1) {
     t.passar(1000);
-    const d = Math.floor(i / 2) % 2 ? 46 : 44;
+    const d = Math.floor(i / 2) % 2 ? 43.5 : 41.5;
     t.r.receber({ codigo: "bueiro_01", distanciaCm: d, em: t.agora() });
   }
   await esvaziar();
@@ -282,4 +282,20 @@ test("sem BACKEND_URL nenhum pedido sai", async () => {
   await esvaziar();
   assert.equal(chamadas, 0);
   assert.equal(r.estado().backend, "desligado");
+});
+
+test("a faixa usa as medidas do bueiro: com outro balde, a mesma distância é outra faixa", async () => {
+  // Balde com cheio a 20 cm: 22 cm é alto (90 %), não crítico. Nas medidas de exemplo, 22 cm
+  // já passou do cheio (25 cm).
+  const t = montar({ extra: { medidas: { profundidade: 40, cheio: 20 } } });
+  t.r.receber({ codigo: "bueiro_01", distanciaCm: 22, em: t.agora() });
+  await esvaziar();
+  assert.equal(t.r.sensores.get("bueiro_01").faixaEnviada, "alto");
+  for (const d of [20, 20]) {
+    t.passar(3000);
+    t.r.receber({ codigo: "bueiro_01", distanciaCm: d, em: t.agora() });
+  }
+  await esvaziar();
+  assert.equal(t.pedidos.length, 2, "chegou ao cheio: vai na hora");
+  assert.equal(t.r.sensores.get("bueiro_01").faixaEnviada, "critico");
 });

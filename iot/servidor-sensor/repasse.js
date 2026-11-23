@@ -2,7 +2,7 @@
 //
 // O ESP32 manda uma leitura a cada 2 s. Aqui elas são juntadas e o backend recebe:
 // - a MEDIANA de cada janela (30 s por padrão), que tira os picos do ultrassom;
-// - um envio NA HORA quando o nível muda de faixa (normal, atenção, alerta, crítico), para o
+// - um envio NA HORA quando o nível muda de faixa (baixo, médio, alto, crítico), para o
 //   alerta chegar rápido. A faixa vem da mediana das últimas leituras, com a folga nos limites
 //   (niveis.js), e entre dois envios imediatos há um intervalo mínimo: leitura oscilando na
 //   fronteira não vira um envio por segundo.
@@ -16,7 +16,7 @@
 // código (um teste qualquer na rede) é ignorada: se entrasse na fila, voltaria 404 ou 401 e
 // seguraria atrás dela as leituras do sensor de verdade.
 
-const { classificarComFolga } = require("./niveis");
+const { MEDIDAS_PADRAO, classificarComFolga } = require("./niveis");
 
 const PADRAO = {
   intervaloMs: 30_000,
@@ -56,6 +56,7 @@ class Repasse {
     this.url = o.backendUrl ? `${String(o.backendUrl).replace(/\/+$/, "")}/leituras` : null;
     this.chave = o.chave || "";
     this.codigo = o.codigo || null; // null = aceita qualquer código (só nos testes)
+    this.medidas = o.medidas || MEDIDAS_PADRAO; // fundo e cheio do bueiro, para a faixa
     this.o = o;
     this.enviar = o.enviar || ((...args) => fetch(...args));
     this.agora = o.agora || (() => Date.now());
@@ -100,7 +101,7 @@ class Repasse {
     if (s.recentes.length > this.o.recentes) s.recentes.shift();
 
     const suave = mediana(s.recentes);
-    const faixa = classificarComFolga(suave, s.faixaEnviada).status;
+    const faixa = classificarComFolga(suave, s.faixaEnviada, this.medidas).status;
     const agora = this.agora();
     const primeira = s.faixaEnviada === null;
     if ((primeira || faixa !== s.faixaEnviada) && agora - s.ultimoImediato >= this.o.minImediatoMs) {
@@ -123,7 +124,7 @@ class Repasse {
   }
 
   enfileirar(codigo, s, distanciaCm, em) {
-    s.faixaEnviada = classificarComFolga(distanciaCm, s.faixaEnviada).status;
+    s.faixaEnviada = classificarComFolga(distanciaCm, s.faixaEnviada, this.medidas).status;
     this.fila.push({ codigo, distanciaCm: umaCasa(distanciaCm), medidaEm: new Date(em).toISOString() });
     // Fila cheia: sai a mais antiga, menos a que está sendo enviada agora (essa sai pela resposta).
     while (this.fila.length > this.o.filaMax) {

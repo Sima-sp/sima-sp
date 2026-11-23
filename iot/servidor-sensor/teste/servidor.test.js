@@ -133,7 +133,7 @@ test("eco falso: um salto isolado (40 → 5 → 40 cm) é ignorado", async () =>
       if (d === 5) assert.equal((await t.ultima()).distancia, 40, "o salto não chega ao painel");
     }
     assert.deepEqual(t.recebidas, [40, 40, 39], "nem ao backend");
-    assert.equal((await t.ultima()).status, "atencao");
+    assert.equal((await t.ultima()).status, "medio", "39 cm é 60 % com as medidas de exemplo");
     const estado = await (await fetch(`${t.base}/api/estado`)).json();
     assert.equal(estado.sensor.descartadasPorSalto, 1);
   } finally {
@@ -176,6 +176,9 @@ test("configuração vem das variáveis de ambiente", () => {
     chave: "",
     codigo: "bueiro_01",
     intervaloMs: 30_000,
+    medidas: { profundidade: 60, cheio: 25 },
+    deExemplo: true,
+    aviso: null,
   });
   const c = lerConfiguracao({
     PORT: "3100",
@@ -183,6 +186,8 @@ test("configuração vem das variáveis de ambiente", () => {
     SENSOR_CHAVE: "abc",
     SENSOR_CODIGO: " bueiro_02 ",
     INTERVALO_REPASSE_S: "10",
+    SENSOR_PROFUNDIDADE_CM: "40",
+    SENSOR_CHEIO_CM: "20",
   });
   assert.deepEqual(c, {
     porta: 3100,
@@ -190,6 +195,40 @@ test("configuração vem das variáveis de ambiente", () => {
     chave: "abc",
     codigo: "bueiro_02",
     intervaloMs: 10_000,
+    medidas: { profundidade: 40, cheio: 20 },
+    deExemplo: false,
+    aviso: null,
   });
   assert.equal(lerConfiguracao({ INTERVALO_REPASSE_S: "zero" }).intervaloMs, 30_000);
+});
+
+test("o nível sai das medidas do bueiro, e o /api/limites mostra a regra (#41)", async () => {
+  // Um balde com o sensor a 40 cm do fundo e cheio a 20 cm: 30 cm é metade.
+  const t = await subirComRelogio({ medidas: { profundidade: 40, cheio: 20 } });
+  try {
+    await t.mandar(30);
+    const l = await t.ultima();
+    assert.equal(l.percentual, 50);
+    assert.equal(l.status, "medio");
+    assert.equal(l.nivel, 2);
+    const regra = await (await fetch(`${t.base}/api/limites`)).json();
+    assert.equal(regra.regra, "percentual");
+    assert.equal(regra.profundidadeCm, 40);
+    assert.equal(regra.cheioCm, 20);
+    assert.equal(regra.deExemplo, false);
+    assert.deepEqual([regra.medio, regra.alto, regra.critico], [50, 80, 100]);
+  } finally {
+    await t.fechar();
+  }
+});
+
+test("sem medidas no .env, o /api/limites avisa que são as de exemplo", async () => {
+  const t = await subirComRelogio();
+  try {
+    const regra = await (await fetch(`${t.base}/api/limites`)).json();
+    assert.equal(regra.deExemplo, true);
+    assert.deepEqual([regra.profundidadeCm, regra.cheioCm], [60, 25]);
+  } finally {
+    await t.fechar();
+  }
 });

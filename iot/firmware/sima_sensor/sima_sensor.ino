@@ -19,6 +19,24 @@ const char* SERVER_URL = "http://172.20.10.2:3000/api/leitura";
 const unsigned long INTERVALO_ENVIO = 2000; // envia a cada 2 s
 const unsigned long TEMPO_MAX_WIFI = 15000;
 
+// ===== MEDIDAS DO BUEIRO (#41) =====
+// Distâncias do sensor, em cm: até o FUNDO do balde e até onde a água conta como CHEIO. Os mesmos
+// números do .env do servidor do sensor (SENSOR_PROFUNDIDADE_CM e SENSOR_CHEIO_CM) e do sensor no
+// backend. Estes são os de exemplo, até a bancada ser medida (#55).
+const float PROFUNDIDADE_CM = 60.0;
+const float CHEIO_CM = 25.0;
+
+// Limites em % de água, os do backend (sensor.nivel.*): médio, alto e crítico (cheio).
+const float LIMITE_MEDIO = 50.0;
+const float LIMITE_ALTO = 80.0;
+const float LIMITE_CRITICO = 100.0;
+
+// Quanto mais cheio, mais rápido o LED pisca (ms entre acender e apagar).
+const int PISCA_BAIXO = 1500;
+const int PISCA_MEDIO = 700;
+const int PISCA_ALTO = 300;
+const int PISCA_CRITICO = 100;
+
 float distancia;
 unsigned long ultimoEnvio = 0;
 unsigned long tempoAnterior = 0;
@@ -87,6 +105,24 @@ float medirDistancia() {
 }
 
 // ==============================
+// NÍVEL (a mesma conta do servidor do sensor, do backend e do painel)
+// ==============================
+// água (%) = (profundidade - distância) / (profundidade - cheio) * 100, entre 0 e 100
+float percentualDaAgua(float dist) {
+  float p = (PROFUNDIDADE_CM - dist) / (PROFUNDIDADE_CM - CHEIO_CM) * 100.0;
+  if (p < 0) return 0;
+  if (p > 100) return 100;
+  return p;
+}
+
+int piscaDoNivel(float percentual) {
+  if (percentual >= LIMITE_CRITICO) return PISCA_CRITICO;
+  if (percentual >= LIMITE_ALTO) return PISCA_ALTO;
+  if (percentual >= LIMITE_MEDIO) return PISCA_MEDIO;
+  return PISCA_BAIXO;
+}
+
+// ==============================
 // SETUP
 // ==============================
 void setup() {
@@ -109,16 +145,17 @@ void loop() {
   if (distancia < 0) {
     Serial.println("Sem leitura");
   } else {
+    float percentual = percentualDaAgua(distancia);
     Serial.print("Distancia: ");
     Serial.print(distancia, 1);
-    Serial.println(" cm");
+    Serial.print(" cm, agua: ");
+    Serial.print(percentual, 0);
+    Serial.println(" %");
 
-    if (distancia <= 25) intervaloLED = 100;
-    else if (distancia <= 45) intervaloLED = 300;
-    else intervaloLED = 700;
+    intervaloLED = piscaDoNivel(percentual);
   }
 
-  // LED pisca conforme a distância
+  // LED pisca conforme o nível da água
   unsigned long agora = millis();
   if (distancia >= 0 && agora - tempoAnterior >= (unsigned long)intervaloLED) {
     tempoAnterior = agora;

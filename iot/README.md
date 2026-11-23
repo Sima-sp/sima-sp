@@ -23,7 +23,9 @@ A senha do Wi-Fi e qualquer chave nunca vão para o git. O jeito de trabalhar do
   `POST /api/leitura` com `{"device":"bueiro_01","distancia":32.4}` (cm, do sensor até a água).
 - **Só envia leitura válida**: sem eco, ou fora de 2 a 450 cm, não envia nada. O sensor alcança
   2000 cm, mas este código ainda corta em 450 cm (na bancada isso não aparece).
-- O LED pisca mais rápido conforme a água chega perto: até 25 cm, até 45 cm e acima disso.
+- O LED pisca mais rápido conforme o nível da água, com a mesma regra em % do servidor e do
+  backend (ver "Nível da água"): baixo, médio, alto e crítico. As medidas do bueiro ficam em
+  `PROFUNDIDADE_CM` e `CHEIO_CM`, no começo do código.
 - **Wi-Fi e endereço do servidor ficam escritos no código.** A senha está como `SUA_SENHA`
   (não vai para o repositório): preencha antes de gravar e não envie de volta com a senha.
   `SERVER_URL` aponta para `172.20.10.2`, o endereço que o hotspot do iPhone costuma dar ao
@@ -42,10 +44,38 @@ ESP32, mostra no painel da bancada e **repassa ao backend** (#54).
 |---|---|
 | `POST /api/leitura` | Recebe a leitura do ESP32, classifica e guarda a última em memória. Distância que não é número, ou fora de 0 a 2000 cm (o limite do backend), volta `400`. Eco falso responde `200`, mas não é usado (ver abaixo) |
 | `GET /api/leitura` | A última leitura (ou `null` se ainda não chegou nenhuma), com `idadeSegundos` e `parado` (`true` depois de 10 s sem leitura nova) |
-| `GET /api/limites` | `{ "zonaCega": 15, "critico": 20, "alerta": 30, "atencao": 45 }` |
+| `GET /api/limites` | A regra do nível: `{ "regra": "percentual", "profundidadeCm": 60, "cheioCm": 25, "deExemplo": true, "medio": 50, "alto": 80, "critico": 100, "emCm": { "medio": 42.5, "alto": 32, "critico": 25 }, "zonaCegaCm": 20, "folgaCm": 2 }`. O painel do app compara com a dele |
 | `GET /api/estado` | Como está o repasse: `backend` (`desligado`, `aguardando`, `ligado` ou `fora`), o código repassado, último envio que deu certo, último erro, leituras na fila e códigos ignorados. Em `sensor`: hora e idade da última leitura, `parado` e quantas leituras saíram por eco falso |
 | `GET /api/stream` | A leitura em tempo real (Server-Sent Events). Quando o sensor para, manda a última leitura de novo, uma vez, com `parado: true` |
 | `/` | Arquivos da pasta `public/` |
+
+### Nível da água (#41)
+
+O servidor, o LED do firmware, o backend e o painel do app dão o nível com a **mesma conta**:
+
+```
+água (%) = (profundidade − distância) ÷ (profundidade − distância de cheio) × 100, entre 0 e 100
+```
+
+| Água | Nível (`status`, `nivel`) |
+|---|---|
+| 100 % (cheio) | `critico`, 4: é o que cria o alerta no backend |
+| 80 % ou mais | `alto`, 3 |
+| 50 % ou mais | `medio`, 2 |
+| abaixo de 50 % | `baixo`, 1 |
+
+A leitura de `/api/leitura` traz também o `percentual`. Os limites em % são os de `sensor.nivel.*`
+no backend. As **medidas do bueiro** precisam ser as mesmas nos três lugares:
+
+| Onde | Profundidade (até o fundo) | Cheio |
+|---|---|---|
+| Servidor do sensor (`.env`) | `SENSOR_PROFUNDIDADE_CM` | `SENSOR_CHEIO_CM` |
+| Firmware (`sima_sensor.ino`) | `PROFUNDIDADE_CM` | `CHEIO_CM` |
+| Backend (sensor `bueiro_01`) | `profundidadeCm` | `distanciaCheioCm` |
+
+O painel do app pega as do backend e avisa, em Ajustes, se o servidor do sensor estiver com
+outras. Enquanto a bancada não é medida (#55), valem as de exemplo: **60 cm e 25 cm**, iguais
+às do painel. O cheio precisa ser 20 cm ou mais: abaixo disso o sensor não mede.
 
 ### Sensor parado, eco falso e folga nos limites (#56)
 
@@ -58,7 +88,9 @@ ESP32, mostra no painel da bancada e **repassa ao backend** (#54).
   ficar parado, a primeira leitura vale sem comparação. O log mostra `[DESCARTADA]`.
 - **Folga nos limites:** perto de um limite, a medida oscila e o nível ficaria trocando. O nível
   só muda quando a água passa do limite por pelo menos **2 cm** (para subir e para descer). Vale
-  para o nível do servidor e para a troca de faixa que dispara o envio imediato ao backend.
+  para o nível do servidor e para a troca de faixa que dispara o envio imediato ao backend. A
+  exceção é chegar ao **cheio**: vai a crítico na hora, como no backend, que cria o alerta nesse
+  ponto. Para sair do crítico, a água precisa descer 2 cm abaixo do cheio.
 
 ### Repasse ao backend
 
@@ -66,7 +98,7 @@ O ESP32 continua mandando a cada 2 s, e o painel continua lendo daqui. Ao backen
 
 - a **mediana a cada 30 s**, que tira os picos do ultrassom (gravar a cada 2 s seriam 43 mil
   linhas por dia por sensor);
-- um envio **na hora** quando o nível muda de faixa (normal, atenção, alerta, crítico), para o
+- um envio **na hora** quando o nível muda de faixa (baixo, médio, alto, crítico), para o
   alerta chegar rápido. A faixa vem da mediana das 3 últimas leituras, então um pico isolado não
   conta, e entre dois envios imediatos há pelo menos 5 s;
 - `POST {BACKEND_URL}/leituras` com o cabeçalho `X-Sensor-Chave` e
@@ -95,6 +127,8 @@ o git.
 | `SENSOR_CHAVE` | vazio | Chave do sensor, gerada pelo admin em `POST /admin/sensores/{id}/chave`. Nunca no código, em print ou no grupo |
 | `SENSOR_CODIGO` | `bueiro_01` | O sensor dono da chave (o `device` do firmware). Só ele vai ao backend |
 | `INTERVALO_REPASSE_S` | `30` | A cada quantos segundos a mediana vai ao backend |
+| `SENSOR_PROFUNDIDADE_CM` | vazio (60) | Do sensor até o fundo do balde, em cm. As mesmas medidas do backend e do firmware (ver "Nível da água") |
+| `SENSOR_CHEIO_CM` | vazio (25) | Do sensor até onde a água conta como cheio, em cm (20 ou mais). Vazias ou impossíveis: as de exemplo, com aviso no log |
 | `PORT` | `3000` | Porta deste servidor |
 
 Rodar (Node 20.12 ou mais novo):
@@ -131,17 +165,17 @@ conecta sozinho, sem internet.
 
 ## Diferenças que valem lembrar
 
-- **Limites.** O servidor classifica com crítico 20, alerta 30, atenção 45 cm (zona cega 15). O
-  painel do SIMA usa crítico 30, alto 45, médio 60 cm, porque o sensor só mede a partir de 20 cm
-  (informado em 07/10); o painel não usa os limites do servidor para dar o nível, só avisa que
-  são diferentes. O LED do firmware usa 25 e 45 cm.
+- **Medidas do bueiro.** A conta é a mesma em todo lugar (#41), mas as medidas ficam em três
+  lugares (ver "Nível da água"). Trocou numa, troque nas outras; o painel avisa se as do servidor
+  forem outras, mas não tem como ver as que estão gravadas na placa.
 - **Leitura impossível.** O servidor recusa distância zero, negativa ou acima de 2000 cm (`400`) e
   ignora o eco falso. O firmware também não manda leitura fora de 2 a 450 cm.
 - **Firmware (#56, ainda não feito):** ele ainda manda uma medida solta a cada 2 s, e não a
   mediana; sem eco, fica calado (não dá para distinguir de placa desligada, e o servidor diz
   "parado" nos dois casos); e não reconecta ao Wi-Fi sozinho.
-- **Nível do servidor.** O campo `nivel` do servidor vai de 0 (Normal) a 3 (Crítico); o do app vai
-  de 1 (Baixo) a 4 (Crítico). O painel não usa o do servidor.
+- **Nível do servidor.** O painel do app não usa o `nivel` que o servidor manda: faz a conta ele
+  mesmo, com as medidas do backend. Com as mesmas medidas, dá o mesmo número (de 1, baixo, a 4,
+  crítico).
 - **Só a última leitura fica aqui.** O histórico fica no backend, que recebe a mediana. Qualquer
   aparelho da rede pode mandar leitura para este servidor; ao backend só chega com a chave do sensor.
 - O pacote de onde este código veio não trazia o painel original do grupo (`public/index.html`

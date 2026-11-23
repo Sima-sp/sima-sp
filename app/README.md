@@ -312,7 +312,7 @@ pergunta a última leitura a esse servidor uma vez por segundo:
 ```
 ESP32 ──Wi-Fi──▶ POST /api/leitura   { "device": "...", "distancia": 32.4 }
 painel ────────▶ GET  /api/leitura   a última leitura (ou null, se ainda não chegou nenhuma)
-                 GET  /api/limites   { "zonaCega": 15, "critico": 20, "alerta": 30, "atencao": 45 }
+                 GET  /api/limites   a regra do servidor: { "regra": "percentual", "profundidadeCm": 60, "cheioCm": 25, ... }
 ```
 
 **Da distância ao nível** (`src/sensor/nivel.js`, com testes). É **a mesma conta do backend**
@@ -342,9 +342,12 @@ fundo e até onde conta como cheio) vêm:
 não mede com precisão (a "zona cega"), por isso a distância de cheio não pode ficar abaixo de
 20 cm. O desenho mostra o mínimo do sensor com uma linha tracejada.
 
-O servidor do sensor e o LED do firmware **ainda classificam por centímetros**, com números
-próprios (o servidor: crítico 20, alerta 30, atenção 45, em `GET /api/limites`; o LED: 25 e 45).
-O painel não os usa; em Ajustes, diz que o nível que vale é o dele. Acertar os dois é da #55.
+O servidor do sensor e o LED do firmware **fazem a mesma conta** (#41), cada um com as medidas
+que tem: o servidor, as do `.env` dele (`SENSOR_PROFUNDIDADE_CM` e `SENSOR_CHEIO_CM`); o LED, as
+gravadas na placa. O painel não usa o nível que o servidor manda: lê a regra dele em
+`GET /api/limites` e, em Ajustes, diz se os dois dão o mesmo nível ou se o servidor está com
+outras medidas. Um servidor de antes de #41 (limites em cm) é reconhecido e o painel pede para
+atualizar. Medir a bancada e pôr os mesmos números nos três lugares é da #55.
 
 **Tempo até transbordar.** Quando a água sobe de forma consistente, o painel diz "Transborda em
 cerca de 4 minutos, se continuar assim" e quantos cm por minuto ela sobe. A velocidade é a
@@ -382,8 +385,8 @@ Três cuidados da tela:
   visto em 06/10 ainda descarta o que passa de 450 cm; na bancada isso não aparece.)
 - O nome e a senha do Wi-Fi e o **endereço do servidor ficam escritos no código**. Em outra rede,
   ou se o computador do servidor receber outro endereço, a placa precisa ser gravada de novo.
-- Um LED na placa pisca mais rápido conforme a água chega perto (limites próprios: 25 e 45 cm,
-  diferentes dos do servidor).
+- Um LED na placa pisca mais rápido conforme o nível da água, com a mesma regra em % do painel
+  (medidas em `PROFUNDIDADE_CM` e `CHEIO_CM`, no código).
 
 **Para usar na bancada:**
 
