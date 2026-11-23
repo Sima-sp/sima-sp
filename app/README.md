@@ -658,7 +658,7 @@ por perto e para mandar relatos.
   token vencido, mesmo em rota aberta, e o mapa não pode parar por isso.
 - **401 numa rota da conta** apaga a sessão e o app mostra "Sua sessão expirou. Entre de novo."
   Vale também para conta desativada ou apagada: o backend deixa de aceitar o token na hora.
-- **Sair** apaga a sessão do aparelho. O backend não tem rota de logout (o token é sem estado).
+- **Sair** apaga a sessão do aparelho na hora e avisa o backend (`POST /auth/logout`), que cancela o token. Servidor fora do ar não impede de sair.
 - **Cadastro**: e-mail, telefone, senha (8 ou mais), localização de referência e a caixa "Li para
   que meus dados são usados". A localização é escolhida pela pessoa ("onde estou agora" ou um
   bairro da lista) e vai com 3 casas decimais, cerca de 100 m.

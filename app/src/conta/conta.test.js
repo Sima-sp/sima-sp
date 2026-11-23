@@ -140,6 +140,11 @@ async function servidorDeMentira() {
         if (req.method === "PATCH") { estado.usuario = { ...estado.usuario, ...corpo }; return responder(200, estado.usuario); }
         if (req.method === "DELETE") return responder(204);
       }
+      if (req.method === "POST" && req.url === "/auth/logout") {
+        if (!autorizado) return responder(401);
+        estado.tokenValido = "token-cancelado-no-logout";
+        return responder(204);
+      }
       if (req.url === "/previsoes") return responder(200, []);
       return responder(404, { detail: "Não encontrado" });
     });
@@ -241,14 +246,32 @@ comServidor("perfil: muda só o que foi enviado e a sessão acompanha", async (s
   assert.deepEqual(servidor.pedidos.at(-1).corpo, { latitude: -23.612, longitude: -46.7 });
 });
 
-comServidor("sair apaga a sessão sem falar com o servidor", async (servidor) => {
+comServidor("sair apaga a sessão na hora e cancela o token no servidor", async (servidor) => {
   await entrar("ana@exemplo.com", "senha-segura-1");
-  const antes = servidor.pedidos.length;
+  let removeuPush = false;
+  const push = new Promise((pronto) => setTimeout(() => { removeuPush = true; pronto(); }, 20));
+  const fim = sair({ depoisDe: push });
+  assert.equal(sessaoAtual(), null, "a sessão some antes de o servidor responder");
+  await fim;
+  assert.ok(removeuPush, "o logout espera a remoção do push");
+  const logout = servidor.pedidos.at(-1);
+  assert.equal(logout.metodo, "POST");
+  assert.equal(logout.caminho, "/auth/logout");
+  assert.equal(logout.autorizacao, "Bearer token-bom");
+  assert.equal(servidor.tokenValido, "token-cancelado-no-logout");
+});
+
+comServidor("sair com o servidor fora do ar: a sessão some do mesmo jeito", async (servidor) => {
+  await entrar("ana@exemplo.com", "senha-segura-1");
   await servidor.fechar(); // servidor fora do ar
   servidor.fechar = async () => {};
-  sair();
+  await sair();
   assert.equal(sessaoAtual(), null);
-  assert.equal(servidor.pedidos.length, antes);
+});
+
+comServidor("sair sem estar logado não chama o servidor", async (servidor) => {
+  await sair();
+  assert.equal(servidor.pedidos.length, 0);
 });
 
 comServidor("apagar a conta: DELETE no servidor e a sessão some", async (servidor) => {

@@ -190,6 +190,34 @@ class AutenticacaoIntegracaoTest {
     }
 
     @Test
+    void logoutDerrubaOTokenNaHora() throws Exception {
+        String email = emailNovo();
+        cadastrar(email, telefoneNovo(), "senha-segura-1");
+        String celular = token(login(email, "senha-segura-1"));
+        String notebook = token(login(email, "senha-segura-1"));
+        assertThat(celular).isNotEqualTo(notebook);
+
+        HttpResponse<String> saida = enviar("POST", "/auth/logout", celular, "");
+        assertThat(saida.statusCode()).as(saida.body()).isEqualTo(204);
+
+        // O token que saiu para de valer; a outra sessão da mesma pessoa continua.
+        assertThat(get("/usuarios/me", celular).statusCode()).isEqualTo(401);
+        assertThat(get("/usuarios/me", notebook).statusCode()).isEqualTo(200);
+
+        // Sair de novo com o mesmo token: ele já não vale.
+        assertThat(enviar("POST", "/auth/logout", celular, "").statusCode()).isEqualTo(401);
+
+        // Entrar de novo dá um token que vale.
+        String deNovo = token(login(email, "senha-segura-1"));
+        assertThat(get("/usuarios/me", deNovo).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void logoutSemTokenDa401() throws Exception {
+        assertThat(enviar("POST", "/auth/logout", null, "").statusCode()).isEqualTo(401);
+    }
+
+    @Test
     void contaDesativadaPerdeOTokenNaHora() throws Exception {
         String email = emailNovo();
         cadastrar(email, telefoneNovo(), "senha-segura-1");

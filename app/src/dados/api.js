@@ -80,10 +80,14 @@ async function erroDaResposta(resposta, mensagens) {
  * @param {"json"|"blob"|"nada"} [opcoes.resposta]  o que devolver (padrão "json"; 204 devolve null)
  * @param {number}  [opcoes.tempoLimiteMs]
  */
-export async function pedir(caminho, { metodo = "GET", corpo, formulario, comConta = false, mensagens, resposta: tipo = "json", tempoLimiteMs = CONFIG.tempoLimiteMs } = {}) {
+export async function pedir(caminho, { metodo = "GET", corpo, formulario, comConta = false, token, mensagens, resposta: tipo = "json", tempoLimiteMs = CONFIG.tempoLimiteMs } = {}) {
   const cabecalhos = { Accept: tipo === "blob" ? "*/*" : "application/json" };
   let sessao = null;
-  if (comConta) {
+  if (token) {
+    // Token dado à mão (o do logout, que sai depois de a sessão ser apagada): 401 aqui não
+    // mexe na sessão atual.
+    cabecalhos.Authorization = `Bearer ${token}`;
+  } else if (comConta) {
     sessao = sessaoAtual();
     if (!sessao) throw new ErroApi("Entre na sua conta para continuar.", { status: 401, codigo: "SEM_SESSAO" });
     cabecalhos.Authorization = `Bearer ${sessao.token}`;

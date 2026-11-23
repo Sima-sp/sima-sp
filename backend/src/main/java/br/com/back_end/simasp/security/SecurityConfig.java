@@ -80,7 +80,8 @@ public class SecurityConfig {
             SecretKey secretKey,
             @Value("${security.jwt.issuer}")
             String emissor,
-            UsuarioRepository usuarioRepository
+            UsuarioRepository usuarioRepository,
+            TokensCancelados tokensCancelados
     ) {
         NimbusJwtDecoder decoder =
                 NimbusJwtDecoder
@@ -88,11 +89,13 @@ public class SecurityConfig {
                         .macAlgorithm(MacAlgorithm.HS256)
                         .build();
 
-        // Além de assinatura, emissor e validade: a conta ainda existe e está ativa (#19).
+        // Além de assinatura, emissor e validade: a conta ainda existe e está ativa (#19)
+        // e o token não saiu pelo logout (#6).
         decoder.setJwtValidator(
                 new DelegatingOAuth2TokenValidator<>(
                         JwtValidators.createDefaultWithIssuer(emissor),
-                        new ContaAtivaValidator(usuarioRepository)
+                        new ContaAtivaValidator(usuarioRepository),
+                        new TokenNaoCanceladoValidator(tokensCancelados)
                 )
         );
 
@@ -129,8 +132,8 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
 
-                // Não existe sessão de logout no JWT.
-                // O frontend simplesmente remove o token.
+                // O logout do Spring é de sessão; aqui o logout é POST /auth/logout (#6),
+                // que cancela o token.
                 .logout(AbstractHttpConfigurer::disable)
 
                 // O Spring não armazenará a autenticação em uma sessão.
@@ -159,6 +162,12 @@ public class SecurityConfig {
                                 "/auth/login",
                                 "/usuarios"
                         ).permitAll()
+
+                        // Logout: só com token, que é o que ele cancela (#6).
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/auth/logout"
+                        ).authenticated()
 
                         // Documentação das rotas (#20).
                         .requestMatchers(

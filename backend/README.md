@@ -74,12 +74,20 @@ o Swagger serve de tela do admin (cadastrar sensor, gerar a chave, resolver aler
 | `POST /leituras` | O servidor do sensor, com a chave do sensor em `X-Sensor-Chave` |
 | `GET /previsoes/**`, `GET /sensores/**`, `GET /alertas`, `GET /ocorrencias` | Qualquer um (o mapa do app é público) |
 | `GET /swagger-ui.html`, `GET /v3/api-docs`, `GET /push/chave-publica` | Qualquer um |
-| `GET`, `PATCH` e `DELETE /usuarios/me`, `PUT /usuarios/me/senha`, `POST /ocorrencias` | Quem entrou (`Authorization: Bearer <token>`) |
+| `GET`, `PATCH` e `DELETE /usuarios/me`, `PUT /usuarios/me/senha`, `POST /ocorrencias`, `POST /auth/logout` | Quem entrou (`Authorization: Bearer <token>`) |
 | `/admin/**`, `POST /previsoes/**` | Perfil ADMIN |
 | Qualquer outra | Ninguém (403) |
 
 O login devolve `{ token, tipo: "Bearer", expiraEmSegundos }`; o token traz `sub` (e-mail),
-`usuarioId` e `perfil`. Os dados do usuário vêm de `GET /usuarios/me`. Sair = o app apaga o token.
+`usuarioId`, `perfil` e um identificador próprio (`jti`). Os dados do usuário vêm de
+`GET /usuarios/me`.
+
+Sair (#6): `POST /auth/logout` com o token responde `204`, e esse token para de valer na hora
+(`401`), não só quando vencer. Outras sessões da mesma pessoa (outro aparelho) continuam. O app
+chama a rota e apaga o token guardado. A lista de tokens cancelados fica em memória até cada um
+vencer: ao reiniciar o backend ela some, e um token que saiu pelo logout volta a valer até vencer
+(no máximo 1 h, `security.jwt.expiration-seconds`). Para um backend só, como o da banca, basta;
+com mais de uma instância, a lista teria de ir para o banco.
 
 Privacidade e abuso (#19):
 
@@ -98,6 +106,7 @@ Os nomes seguem uma regra só (#20): substantivo no caminho e o verbo HTTP dizen
 | Para quê | Rota |
 |---|---|
 | Criar conta | `POST /usuarios` |
+| Entrar; sair (cancela o token) | `POST /auth/login`; `POST /auth/logout` |
 | Ver e mudar o perfil (só os campos enviados) | `GET` e `PATCH /usuarios/me` |
 | Trocar a senha | `PUT /usuarios/me/senha` |
 | Excluir a própria conta | `DELETE /usuarios/me` |
