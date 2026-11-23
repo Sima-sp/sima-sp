@@ -30,6 +30,7 @@ jobs:
       app: ${{ steps.filtro.outputs.app == 'true' || steps.filtro.outputs.ci == 'true' || github.event_name == 'workflow_dispatch' }}
       site: ${{ steps.filtro.outputs.site == 'true' || steps.filtro.outputs.ci == 'true' || github.event_name == 'workflow_dispatch' }}
       iot: ${{ steps.filtro.outputs.iot == 'true' || steps.filtro.outputs.ci == 'true' || github.event_name == 'workflow_dispatch' }}
+      infra: ${{ steps.filtro.outputs.infra == 'true' || steps.filtro.outputs.ci == 'true' || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v7
       - id: filtro
@@ -41,6 +42,7 @@ jobs:
             app: ["app/**"]
             site: ["site/**"]
             iot: ["iot/**"]
+            infra: ["infra/**", "backend/docs/sensores-capital.sql"]
             ci: [".github/workflows/ci.yml"]
 
   backend:
@@ -201,9 +203,54 @@ jobs:
           npm ci
           node --check server.js
 
+  infra:
+    name: infra (Docker Compose)
+    needs: mudancas
+    if: needs.mudancas.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v7
+      - name: .env de teste (gerado na hora, nenhum segredo real)
+        run: ./gerar-env.sh admin@ci.simasp.local
+      - name: Subir o sistema do zero
+        run: docker compose up -d --build
+      - name: Esperar o backend e a carga dos pontos
+        run: |
+          estado=""
+          for i in $(seq 1 60); do
+            estado=$(docker compose ps -a dados --format '{{.State}} {{.ExitCode}}')
+            [ "$estado" = "exited 0" ] && break
+            sleep 5
+          done
+          docker compose ps -a
+          if [ "$estado" != "exited 0" ]; then docker compose logs; exit 1; fi
+      - name: Conferir pontos, nomes, login e previsões
+        run: |
+          set -e
+          . ./.env
+          total=$(curl -sf "localhost:8080/sensores?size=200" | jq '.page.totalElements')
+          echo "Sensores: $total"; [ "$total" = 136 ]
+          nome=$(curl -sf "localhost:8080/sensores?size=200" | jq -r '.content[] | select(.codigo == "bueiro_01") | .vizinhanca')
+          echo "bueiro_01: $nome"; echo "$nome" | grep -q "Tietê"
+          token=$(curl -sf -X POST localhost:8080/auth/login -H 'Content-Type: application/json' \
+            -d "{\"email\":\"$ADMIN_EMAIL\",\"senha\":\"$ADMIN_SENHA\"}" | jq -r .token)
+          [ -n "$token" ] && [ "$token" != null ]
+          curl -sf localhost:8080/previsoes > /dev/null
+          curl -sf localhost:8080/push/chave-publica > /dev/null
+          echo "Compose ok"
+      - name: Log se falhou
+        if: failure()
+        run: docker compose logs --tail 200
+      - name: Desligar
+        if: always()
+        run: docker compose down -v
+
   ci:
     name: ci
-    needs: [mudancas, backend, backend-imagem, ia, ia-imagem, app, site, iot]
+    needs: [mudancas, backend, backend-imagem, ia, ia-imagem, app, site, iot, infra]
     if: always()
     runs-on: ubuntu-latest
     steps:

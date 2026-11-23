@@ -1,0 +1,108 @@
+# SIMA-SP completo num comando (#60): MySQL, serviço de IA e backend.
+#
+#   cd infra
+#   cp .env.example .env      # e preencha (ver README)
+#   docker compose up -d --build
+#
+# Backend em http://localhost:8080 (Swagger em /swagger-ui.html). O banco e a IA não ficam
+# expostos: só o backend fala com eles. O serviço "dados" cadastra os pontos da capital como
+# sensores (#16) depois que o backend criou as tabelas, e sai; pode rodar de novo sem duplicar.
+#
+# Fora daqui: o servidor do sensor (Node, iot/servidor-sensor), que roda ao lado do ESP32, e o
+# app e a página do projeto, que ficam no GitHub Pages.
+
+name: sima-sp
+
+x-fuso: &fuso
+  TZ: America/Sao_Paulo
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      <<: *fuso
+      MYSQL_DATABASE: simasp_db
+      MYSQL_USER: ${DB_USERNAME:-simasp_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?preencha DB_PASSWORD no infra/.env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?preencha MYSQL_ROOT_PASSWORD no infra/.env}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      - mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  ia:
+    build: ../ia
+    image: sima-ia:local
+    environment:
+      <<: *fuso
+      VERSAO_MODELO: ${VERSAO_MODELO:-v1}
+      LOG_LEVEL: ${LOG_LEVEL_IA:-INFO}
+    # Sem porta publicada: o serviço não tem login, só o backend deve alcançá-lo. A rede continua
+    # com saída para a internet, porque a IA busca a chuva no Open-Meteo.
+    # O healthcheck vem do Dockerfile da IA (GET /health).
+    restart: unless-stopped
+
+  backend:
+    build: ../backend
+    image: sima-backend:local
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ia:
+        condition: service_healthy
+    environment:
+      <<: *fuso
+      DB_URL: jdbc:mysql://mysql:3306/simasp_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Sao_Paulo
+      DB_USERNAME: ${DB_USERNAME:-simasp_user}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?preencha JWT_SECRET no infra/.env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:4173,https://sima-sp.github.io}
+      IA_HABILITADA: "true"
+      IA_URL: http://ia:5000
+      IA_DEMONSTRACAO: ${IA_DEMONSTRACAO:-true}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_SENHA: ${ADMIN_SENHA:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_CONTATO: ${VAPID_CONTATO:-mailto:contato@simasp.local}
+    ports:
+      - "${BACKEND_PORTA:-8080}:8080"
+    volumes:
+      # Fotos dos relatos (#15): ficam entre uma versão e outra.
+      - fotos:/dados
+    healthcheck:
+      # A imagem não tem curl: basta a porta aceitar conexão (o Tomcat só abre depois do Spring subir).
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 30s
+    restart: unless-stopped
+
+  dados:
+    image: mysql:8.4
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      MYSQL_PWD: ${DB_PASSWORD}
+      DB_USERNAME: ${DB_USERNAME:-simasp_user}
+    volumes:
+      - ../backend/docs/sensores-capital.sql:/carga/sensores-capital.sql:ro
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        mysql -h mysql -u "$$DB_USERNAME" --default-character-set=utf8mb4 simasp_db
+        < /carga/sensores-capital.sql && echo "Pontos da capital cadastrados como sensores."
+    restart: "no"
+
+volumes:
+  mysql:
+  fotos:
