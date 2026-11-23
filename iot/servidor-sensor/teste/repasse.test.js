@@ -200,6 +200,74 @@ test("leitura recusada (400) sai da fila", async () => {
   assert.equal(t.agenda.length, 0);
 });
 
+test("leitura recusada (400) não deixa o estado como backend fora", async () => {
+  const t = montar();
+  t.r.receber({ codigo: "bueiro_01", distanciaCm: 60, em: t.agora() });
+  await esvaziar();
+  assert.equal(t.r.estado().backend, "ligado");
+  t.trocarResposta(() => ({ ok: false, status: 400, json: async () => ({ mensagem: "distanciaCm inválida" }) }));
+  t.passar(30_000);
+  t.r.receber({ codigo: "bueiro_01", distanciaCm: 61, em: t.agora() });
+  t.r.periodico();
+  await esvaziar();
+  const e = t.r.estado();
+  assert.equal(e.backend, "ligado");
+  assert.equal(e.ultimoErro.status, 400);
+});
+
+test("leitura de outro código não vai ao backend nem segura a fila", async () => {
+  const t = montar({ extra: { codigo: "bueiro_01" } });
+  // Um teste qualquer na rede, com um código que o backend não conhece (voltaria 404).
+  t.r.receber({ codigo: "esp32-01", distanciaCm: 40, em: t.agora() });
+  t.r.receber({ codigo: "esp32-01", distanciaCm: 41, em: t.agora() });
+  await esvaziar();
+  assert.equal(t.pedidos.length, 0);
+  assert.equal(t.r.estado().naFila, 0);
+  assert.deepEqual(t.r.estado().ignorados, ["esp32-01"]);
+  assert.equal(t.avisos.length, 1, "avisa uma vez por código");
+
+  t.r.receber({ codigo: "bueiro_01", distanciaCm: 60, em: t.agora() });
+  await esvaziar();
+  assert.equal(t.pedidos.length, 1);
+  assert.equal(t.pedidos[0].corpo.codigo, "bueiro_01");
+});
+
+test("fila cheia durante um envio: nenhuma leitura não enviada se perde", async () => {
+  const respostas = [];
+  const t = montar({
+    responder: () => new Promise((ok) => respostas.push(ok)),
+    extra: { filaMax: 3 },
+  });
+  // Três leituras na fila; a primeira está sendo enviada e o backend demora a responder.
+  for (let i = 0; i < 3; i += 1) {
+    t.passar(30_000);
+    t.r.receber({ codigo: "bueiro_01", distanciaCm: 60 + i, em: t.agora() });
+    t.r.periodico();
+  }
+  await esvaziar();
+  assert.equal(t.pedidos.length, 1);
+  const emVoo = t.pedidos[0].corpo.distanciaCm;
+
+  // Chega mais uma com a fila cheia: sai a mais antiga que ainda não foi enviada.
+  t.passar(30_000);
+  t.r.receber({ codigo: "bueiro_01", distanciaCm: 70, em: t.agora() });
+  t.r.periodico();
+  assert.equal(t.r.estado().naFila, 3);
+  assert.equal(t.r.fila[0].distanciaCm, emVoo, "a que está sendo enviada fica");
+
+  // O backend responde: sai a enviada, e as outras seguem na ordem.
+  const ok = () => ({ ok: true, status: 201, json: async () => ({}) });
+  while (respostas.length) {
+    respostas.shift()(ok());
+    await esvaziar();
+  }
+  const enviadas = t.pedidos.map((p) => p.corpo.distanciaCm);
+  assert.equal(new Set(enviadas).size, enviadas.length, `nada enviado duas vezes (${enviadas})`);
+  assert.equal(enviadas[enviadas.length - 1], 70);
+  assert.equal(t.r.estado().naFila, 0);
+  assert.equal(t.r.estado().descartadas, 1);
+});
+
 test("sem BACKEND_URL nenhum pedido sai", async () => {
   let chamadas = 0;
   const r = new Repasse({

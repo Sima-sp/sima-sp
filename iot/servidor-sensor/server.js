@@ -74,6 +74,8 @@ function lerConfiguracao(env = process.env) {
     porta: Number(env.PORT || 3000),
     backendUrl: (env.BACKEND_URL || "").trim(),
     chave: (env.SENSOR_CHAVE || "").trim(),
+    // O `device` que o firmware manda e o código do sensor no backend (o dono da chave).
+    codigo: (env.SENSOR_CODIGO || "").trim() || "bueiro_01",
     intervaloMs: Number.isFinite(intervaloS) && intervaloS > 0 ? intervaloS * 1000 : 30_000,
   };
 }
@@ -83,11 +85,18 @@ if (require.main === module) {
   if (fs.existsSync(arquivoEnv)) process.loadEnvFile(arquivoEnv);
 
   const cfg = lerConfiguracao();
-  const repasse = new Repasse({ backendUrl: cfg.backendUrl, chave: cfg.chave, intervaloMs: cfg.intervaloMs });
+  const repasse = new Repasse({
+    backendUrl: cfg.backendUrl,
+    chave: cfg.chave,
+    codigo: cfg.codigo,
+    intervaloMs: cfg.intervaloMs,
+  });
   if (repasse.ativo) {
     if (!cfg.chave) console.warn("[repasse] SENSOR_CHAVE vazia: o backend vai recusar as leituras (401).");
     setInterval(() => repasse.periodico(), cfg.intervaloMs);
-    console.log(`Repassando ao backend ${cfg.backendUrl} (mediana a cada ${cfg.intervaloMs / 1000} s)`);
+    console.log(
+      `Repassando ${cfg.codigo} ao backend ${cfg.backendUrl} (mediana a cada ${cfg.intervaloMs / 1000} s)`,
+    );
   } else {
     console.log("Sem BACKEND_URL: só o painel da bancada, nada vai ao backend.");
   }

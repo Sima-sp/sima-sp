@@ -10,6 +10,10 @@
 // Se o backend não responde, as leituras esperam numa fila curta e o envio é tentado de novo
 // com espera crescente. Chave errada (401), sensor desconhecido (404) ou inativo (409) não se
 // resolvem sozinhos: ficam registrados em `estado()` e a próxima tentativa só vem depois de 1 min.
+//
+// A chave é de um sensor só, então só o código dele vai ao backend (`codigo`). Leitura de outro
+// código (um teste qualquer na rede) é ignorada: se entrasse na fila, voltaria 404 ou 401 e
+// seguraria atrás dela as leituras do sensor de verdade.
 
 const { classificar } = require("./niveis");
 
@@ -50,6 +54,7 @@ class Repasse {
     const o = { ...PADRAO, ...opcoes };
     this.url = o.backendUrl ? `${String(o.backendUrl).replace(/\/+$/, "")}/leituras` : null;
     this.chave = o.chave || "";
+    this.codigo = o.codigo || null; // null = aceita qualquer código (só nos testes)
     this.o = o;
     this.enviar = o.enviar || ((...args) => fetch(...args));
     this.agora = o.agora || (() => Date.now());
@@ -59,6 +64,8 @@ class Repasse {
 
     this.sensores = new Map(); // codigo -> { janela, recentes, faixaEnviada, ultimoImediato }
     this.fila = [];
+    this.emVoo = null; // o item da fila que está sendo enviado agora
+    this.ignorados = new Set(); // códigos que chegaram e não são o deste sensor
     this.enviando = false;
     this.espera = null;
     this.falhasSeguidas = 0;
@@ -75,6 +82,13 @@ class Repasse {
   /** Uma leitura do ESP32: { codigo, distanciaCm, em (ms) }. */
   receber({ codigo, distanciaCm, em }) {
     if (!this.ativo) return;
+    if (this.codigo && codigo !== this.codigo) {
+      if (!this.ignorados.has(codigo)) {
+        this.ignorados.add(codigo);
+        this.log.warn(`[repasse] Leitura de "${codigo}" não vai ao backend: este servidor repassa só "${this.codigo}" (SENSOR_CODIGO).`);
+      }
+      return;
+    }
     let s = this.sensores.get(codigo);
     if (!s) {
       s = { janela: [], recentes: [], faixaEnviada: null, ultimoImediato: -Infinity };
@@ -110,8 +124,9 @@ class Repasse {
   enfileirar(codigo, s, distanciaCm, em) {
     s.faixaEnviada = classificar(distanciaCm).status;
     this.fila.push({ codigo, distanciaCm: umaCasa(distanciaCm), medidaEm: new Date(em).toISOString() });
+    // Fila cheia: sai a mais antiga, menos a que está sendo enviada agora (essa sai pela resposta).
     while (this.fila.length > this.o.filaMax) {
-      this.fila.shift();
+      this.fila.splice(this.fila[0] === this.emVoo ? 1 : 0, 1);
       this.descartadas += 1;
     }
     this.bombear();
@@ -128,6 +143,7 @@ class Repasse {
     if (this.enviando || this.espera || !this.fila.length) return;
     this.enviando = true;
     const item = this.fila[0];
+    this.emVoo = item;
     try {
       const resposta = await this.enviar(this.url, {
         method: "POST",
@@ -136,7 +152,7 @@ class Repasse {
         signal: AbortSignal.timeout(this.o.tempoLimiteMs),
       });
       if (resposta.ok) {
-        this.fila.shift();
+        this.tirar(item);
         this.falhasSeguidas = 0;
         this.falhando = false;
         this.ultimoSucesso = { em: new Date(this.agora()).toISOString(), ...item };
@@ -147,9 +163,11 @@ class Repasse {
         } catch {
           corpo = null;
         }
-        this.registrarErro(resposta.status, explicarStatus(resposta.status, corpo));
-        if (resposta.status === 400) {
-          this.fila.shift(); // a leitura em si é inválida: tentar de novo não adianta
+        // 400: o backend está no ar e recusou só esta leitura; o estado não vira "fora".
+        const recusouLeitura = resposta.status === 400;
+        this.registrarErro(resposta.status, explicarStatus(resposta.status, corpo), { falha: !recusouLeitura });
+        if (recusouLeitura) {
+          this.tirar(item); // a leitura em si é inválida: tentar de novo não adianta
         } else if (STATUS_DE_CONFIGURACAO.has(resposta.status)) {
           this.esperar(this.o.pausaConfiguracaoMs);
         } else {
@@ -161,6 +179,7 @@ class Repasse {
       this.esperarCrescente();
     } finally {
       this.enviando = false;
+      this.emVoo = null;
     }
     if (!this.espera && this.fila.length) this.bombear();
   }
@@ -171,10 +190,16 @@ class Repasse {
     this.esperar(ms);
   }
 
-  registrarErro(status, mensagem) {
+  /** Tira da fila este item (não "o primeiro": a fila pode ter andado enquanto ele era enviado). */
+  tirar(item) {
+    const i = this.fila.indexOf(item);
+    if (i !== -1) this.fila.splice(i, 1);
+  }
+
+  registrarErro(status, mensagem, { falha = true } = {}) {
     const repetido = this.ultimoErro && this.ultimoErro.mensagem === mensagem;
     this.ultimoErro = { em: new Date(this.agora()).toISOString(), status, mensagem };
-    this.falhando = true;
+    this.falhando = falha;
     if (!repetido) this.log.warn(`[repasse] ${mensagem}`);
   }
 
@@ -187,11 +212,13 @@ class Repasse {
     }
     return {
       backend,
+      codigo: this.codigo,
       intervaloSegundos: this.o.intervaloMs / 1000,
       ultimoSucesso: this.ultimoSucesso,
       ultimoErro: this.ultimoErro,
       naFila: this.fila.length,
       descartadas: this.descartadas,
+      ignorados: [...this.ignorados],
     };
   }
 

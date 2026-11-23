@@ -43,7 +43,7 @@ ESP32, mostra no painel da bancada e **repassa ao backend** (#54).
 | `POST /api/leitura` | Recebe a leitura do ESP32, classifica e guarda a última em memória. Distância que não é número, ou fora de 0 a 2000 cm (o limite do backend), volta `400` |
 | `GET /api/leitura` | A última leitura (ou `null` se ainda não chegou nenhuma) |
 | `GET /api/limites` | `{ "zonaCega": 15, "critico": 20, "alerta": 30, "atencao": 45 }` |
-| `GET /api/estado` | Como está o repasse: `backend` (`desligado`, `aguardando`, `ligado` ou `fora`), último envio que deu certo, último erro e leituras na fila |
+| `GET /api/estado` | Como está o repasse: `backend` (`desligado`, `aguardando`, `ligado` ou `fora`), o código repassado, último envio que deu certo, último erro, leituras na fila e códigos ignorados |
 | `GET /api/stream` | A leitura em tempo real (Server-Sent Events) |
 | `/` | Arquivos da pasta `public/` |
 
@@ -60,6 +60,11 @@ O ESP32 continua mandando a cada 2 s, e o painel continua lendo daqui. Ao backen
   `{ "codigo": "bueiro_01", "distanciaCm": 32.4, "medidaEm": "2026-11-24T17:20:00.000Z" }`. O
   `codigo` é o `device` que o firmware manda.
 
+A chave é de um sensor só, então só vai ao backend o código de `SENSOR_CODIGO` (`bueiro_01`). Uma
+leitura com outro `device` (um teste qualquer na rede) aparece no painel, mas não é repassada: ela
+voltaria `404` e seguraria na fila as leituras do sensor de verdade. O código ignorado aparece uma
+vez no log e em `/api/estado`.
+
 O repasse corre depois da resposta ao ESP32: backend lento ou fora não atrasa o painel. Sem
 resposta do backend, as leituras esperam numa fila curta (as 20 últimas) e o envio é tentado de
 novo com espera crescente (2 s, 4 s, 8 s… até 1 min). Chave errada (`401`), sensor não cadastrado
@@ -75,6 +80,7 @@ o git.
 |---|---|---|
 | `BACKEND_URL` | vazio | Endereço do backend, ex.: `http://localhost:8080`. Vazio = só o painel, nada vai ao backend (o plano B da banca) |
 | `SENSOR_CHAVE` | vazio | Chave do sensor, gerada pelo admin em `POST /admin/sensores/{id}/chave`. Nunca no código, em print ou no grupo |
+| `SENSOR_CODIGO` | `bueiro_01` | O sensor dono da chave (o `device` do firmware). Só ele vai ao backend |
 | `INTERVALO_REPASSE_S` | `30` | A cada quantos segundos a mediana vai ao backend |
 | `PORT` | `3000` | Porta deste servidor |
 

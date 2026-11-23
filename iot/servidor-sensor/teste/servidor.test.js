@@ -58,13 +58,26 @@ test("leitura impossível é recusada e não chega ao painel", async () => {
 });
 
 test("configuração vem das variáveis de ambiente", () => {
-  assert.deepEqual(lerConfiguracao({}), { porta: 3000, backendUrl: "", chave: "", intervaloMs: 30_000 });
+  assert.deepEqual(lerConfiguracao({}), {
+    porta: 3000,
+    backendUrl: "",
+    chave: "",
+    codigo: "bueiro_01",
+    intervaloMs: 30_000,
+  });
   const c = lerConfiguracao({
     PORT: "3100",
     BACKEND_URL: " http://localhost:8080 ",
     SENSOR_CHAVE: "abc",
+    SENSOR_CODIGO: " bueiro_02 ",
     INTERVALO_REPASSE_S: "10",
   });
-  assert.deepEqual(c, { porta: 3100, backendUrl: "http://localhost:8080", chave: "abc", intervaloMs: 10_000 });
+  assert.deepEqual(c, {
+    porta: 3100,
+    backendUrl: "http://localhost:8080",
+    chave: "abc",
+    codigo: "bueiro_02",
+    intervaloMs: 10_000,
+  });
   assert.equal(lerConfiguracao({ INTERVALO_REPASSE_S: "zero" }).intervaloMs, 30_000);
 });
