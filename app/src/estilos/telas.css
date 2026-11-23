@@ -512,3 +512,7 @@ a.row.mu-link, a.row.mu-link:hover { color: var(--bone-100); text-decoration: no
 .ad-sensor { flex-wrap: wrap; }
 .ad-sensor .row-k { flex: 1 1 160px; }
 .ad-sensor .seg button { padding: 0 10px; font-size: 14px; }
+
+/* Viagem: escolher entre simular e seguir o GPS (#47). */
+.vg-simulacao { flex-wrap: wrap; }
+.vg-modo button { padding: 0 12px; }
