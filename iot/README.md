@@ -35,22 +35,70 @@ preencha `WIFI_PASS`, escolha a placa e a porta e envie. O monitor serial (11520
 
 ## Servidor do sensor (`servidor-sensor/`)
 
-Node + Express, porta 3000, aceita pedidos de qualquer endereço (CORS aberto).
+Node + Express, porta 3000, aceita pedidos de qualquer endereço (CORS aberto). Recebe a leitura do
+ESP32, mostra no painel da bancada e **repassa ao backend** (#54).
 
 | Rota | O que faz |
 |---|---|
-| `POST /api/leitura` | Recebe a leitura do ESP32, classifica e guarda **só a última, em memória** |
+| `POST /api/leitura` | Recebe a leitura do ESP32, classifica e guarda a última em memória. Distância que não é número, ou fora de 0 a 2000 cm (o limite do backend), volta `400` |
 | `GET /api/leitura` | A última leitura (ou `null` se ainda não chegou nenhuma) |
 | `GET /api/limites` | `{ "zonaCega": 15, "critico": 20, "alerta": 30, "atencao": 45 }` |
+| `GET /api/estado` | Como está o repasse: `backend` (`desligado`, `aguardando`, `ligado` ou `fora`), o código repassado, último envio que deu certo, último erro, leituras na fila e códigos ignorados |
 | `GET /api/stream` | A leitura em tempo real (Server-Sent Events) |
 | `/` | Arquivos da pasta `public/` |
 
-Rodar:
+### Repasse ao backend
+
+O ESP32 continua mandando a cada 2 s, e o painel continua lendo daqui. Ao backend vai:
+
+- a **mediana a cada 30 s**, que tira os picos do ultrassom (gravar a cada 2 s seriam 43 mil
+  linhas por dia por sensor);
+- um envio **na hora** quando o nível muda de faixa (normal, atenção, alerta, crítico), para o
+  alerta chegar rápido. A faixa vem da mediana das 3 últimas leituras, então um pico isolado não
+  conta, e entre dois envios imediatos há pelo menos 5 s;
+- `POST {BACKEND_URL}/leituras` com o cabeçalho `X-Sensor-Chave` e
+  `{ "codigo": "bueiro_01", "distanciaCm": 32.4, "medidaEm": "2026-11-24T17:20:00.000Z" }`. O
+  `codigo` é o `device` que o firmware manda.
+
+A chave é de um sensor só, então só vai ao backend o código de `SENSOR_CODIGO` (`bueiro_01`). Uma
+leitura com outro `device` (um teste qualquer na rede) aparece no painel, mas não é repassada: ela
+voltaria `404` e seguraria na fila as leituras do sensor de verdade. O código ignorado aparece uma
+vez no log e em `/api/estado`.
+
+O repasse corre depois da resposta ao ESP32: backend lento ou fora não atrasa o painel. Sem
+resposta do backend, as leituras esperam numa fila curta (as 20 últimas) e o envio é tentado de
+novo com espera crescente (2 s, 4 s, 8 s… até 1 min). Chave errada (`401`), sensor não cadastrado
+(`404`) ou inativo (`409`) aparecem no log e em `/api/estado`, e a próxima tentativa só vem depois
+de 1 min.
+
+### Configuração
+
+Copie `servidor-sensor/.env.example` para `servidor-sensor/.env` e preencha. O `.env` não vai para
+o git.
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `BACKEND_URL` | vazio | Endereço do backend, ex.: `http://localhost:8080`. Vazio = só o painel, nada vai ao backend (o plano B da banca) |
+| `SENSOR_CHAVE` | vazio | Chave do sensor, gerada pelo admin em `POST /admin/sensores/{id}/chave`. Nunca no código, em print ou no grupo |
+| `SENSOR_CODIGO` | `bueiro_01` | O sensor dono da chave (o `device` do firmware). Só ele vai ao backend |
+| `INTERVALO_REPASSE_S` | `30` | A cada quantos segundos a mediana vai ao backend |
+| `PORT` | `3000` | Porta deste servidor |
+
+Rodar (Node 20.12 ou mais novo):
 
 ```
 cd servidor-sensor
 npm install
-node server.js
+cp .env.example .env   # e preencha BACKEND_URL e SENSOR_CHAVE
+npm start
+npm test               # testes do repasse
+```
+
+Para conferir de ponta a ponta: com o servidor ligado ao backend, mande uma leitura e veja o estado.
+
+```
+curl -X POST localhost:3000/api/leitura -H 'Content-Type: application/json' -d '{"device":"bueiro_01","distancia":40}'
+curl localhost:3000/api/estado     # "backend": "ligado"
 ```
 
 O painel do SIMA vem do app: na pasta [`app/`](../app),
@@ -62,8 +110,9 @@ conecta sozinho, sem internet.
 
 1. Hotspot do iPhone ligado, com "Maximizar Compatibilidade" (o ESP32 só vê Wi-Fi de 2,4 GHz).
 2. O notebook do servidor entra no hotspot **primeiro** e precisa ficar com `172.20.10.2`.
-3. `node server.js` no notebook.
-4. Liga a placa. `http://localhost:3000/api/leitura` passa a mostrar a distância.
+3. `npm start` na pasta `servidor-sensor/` do notebook, com o `.env` preenchido.
+4. Liga a placa. `http://localhost:3000/api/leitura` passa a mostrar a distância, e
+   `http://localhost:3000/api/estado` deve dizer `"backend": "ligado"` em até 30 s.
 
 ## Diferenças que valem lembrar
 
@@ -71,11 +120,11 @@ conecta sozinho, sem internet.
   painel do SIMA usa crítico 30, alto 45, médio 60 cm, porque o sensor só mede a partir de 20 cm
   (informado em 07/10); o painel não usa os limites do servidor para dar o nível, só avisa que
   são diferentes. O LED do firmware usa 25 e 45 cm.
-- **Leitura impossível.** O servidor aceita `distancia: 0` e classifica como Crítico. O firmware
-  não manda isso hoje; o painel mostra "Leitura inválida".
+- **Leitura impossível.** O servidor recusa distância zero, negativa ou acima de 2000 cm (`400`).
+  O firmware também não manda leitura fora de 2 a 450 cm.
 - **Nível do servidor.** O campo `nivel` do servidor vai de 0 (Normal) a 3 (Crítico); o do app vai
   de 1 (Baixo) a 4 (Crítico). O painel não usa o do servidor.
-- **Nada fica guardado e nada vai ao backend.** Só a última leitura, em memória; qualquer aparelho
-  da rede pode enviar leitura. Levar a leitura ao backend em Java é o passo seguinte.
+- **Só a última leitura fica aqui.** O histórico fica no backend, que recebe a mediana. Qualquer
+  aparelho da rede pode mandar leitura para este servidor; ao backend só chega com a chave do sensor.
 - O pacote de onde este código veio não trazia o painel original do grupo (`public/index.html`
   do servidor); se ele existir, pode entrar em `servidor-sensor/public/`.

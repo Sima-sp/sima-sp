@@ -1,3 +1,5 @@
 node_modules/
+# Configuração local, com a chave do sensor.
+.env
 # Gerado pelo app (npm run painel, na raiz do repositório) e copiado para cá na hora de usar.
 public/sima-sensor.html
