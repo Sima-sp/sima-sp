@@ -22,7 +22,8 @@ import { usePreferencias } from "../preferencias/PreferenciasContexto";
 import { useRotas } from "../rotas/RotaContexto";
 import { REGRAS, resumoDaRota, textoDistancia, textoDuracao, viasPrincipais } from "../rotas/planejar";
 import { corNivel } from "../dados/niveis";
-import { fatosDoCartao, horaCurta, linhaSituacao, nivelVisivel, tituloDoPonto } from "../dados/modelo";
+import { fatosDoCartao, haQuanto, horaCurta, linhaSituacao, nivelVisivel, tituloDoPonto } from "../dados/modelo";
+import { rotuloDoTipo } from "../relatos/relatos";
 import { avisosPorRegiao, resumoDosAvisos } from "../dados/regioes";
 import { resumoDosAlertas, textoDoAlerta } from "../dados/alertas";
 import { useApresentacao } from "../componentes/PrimeiroUso";
@@ -39,7 +40,7 @@ import {
 const ICONE_DO_CLIMA = { sol: IconeSol, chuvisco: IconeChuvisco, "chuva-forte": IconeChuva, "chuva-extrema": IconeTempestade };
 
 export default function Mapa() {
-  const { pontos, alertas, agora, fonte, erro, carregando, simulacao, atualizadoEm, atualizar, demo } = usePontos();
+  const { pontos, alertas, relatos, agora, fonte, erro, carregando, simulacao, atualizadoEm, atualizar, demo } = usePontos();
   const { tema, vitrine: vitrineLigada } = usePreferencias();
   const navegar = useNavigate();
   const local = useLocation();
@@ -66,6 +67,10 @@ export default function Mapa() {
   const idSelecionado = naRaiz ? parametros.get("ponto") : rotaBueiro?.params.id ?? null;
   const selecionado = idSelecionado ? pontos.find((p) => p.id === idSelecionado) ?? null : null;
   const cartaoAberto = naRaiz && Boolean(selecionado);
+  // Um relato aprovado tocado no mapa (/?relato=ID): abre o cartão dele, no lugar do cartão do bueiro.
+  const relatoAberto = naRaiz && !selecionado ? relatos.find((r) => r.id === parametros.get("relato")) ?? null : null;
+  const ultimoRelato = useRef(null);
+  if (relatoAberto) ultimoRelato.current = relatoAberto;
 
   // Guarda o último ponto para o cartão não ficar vazio enquanto desce.
   const ultimo = useRef(null);
@@ -85,11 +90,15 @@ export default function Mapa() {
     if (emRota) navegar(`/bueiro/${encodeURIComponent(id)}`);
     else navegar({ pathname: "/", search: `?ponto=${encodeURIComponent(id)}` }, { replace: naRaiz });
   };
+  // Relato: só no mapa comum. No modo rota e na viagem o toque não faz nada (abrir o cartão tiraria a pessoa de lá).
+  const selecionarRelato = (id) => {
+    if (naRaiz) navegar({ pathname: "/", search: `?relato=${encodeURIComponent(id)}` }, { replace: true });
+  };
   const fecharCartao = () => {
-    if (cartaoAberto) navegar("/", { replace: true });
+    if (cartaoAberto || relatoAberto) navegar("/", { replace: true });
   };
 
-  useEsc(fecharCartao, cartaoAberto); // Esc fecha o cartão
+  useEsc(fecharCartao, cartaoAberto || Boolean(relatoAberto)); // Esc fecha o cartão
 
   // Modo rota: avisa o estado das rotas (que só calcula com o mapa neste modo) e, se a pessoa
   // chegou aqui sem partida e destino (recarregou a página, por exemplo), manda escolher.
@@ -212,6 +221,9 @@ export default function Mapa() {
         tema={tema}
         selecionadoId={selecionado?.id ?? null}
         rota={rotaNoMapa}
+        relatos={relatos}
+        relatoSelecionadoId={relatoAberto?.id ?? null}
+        aoTocarRelato={selecionarRelato}
         aoTocarPonto={selecionar}
         aoTocarFundo={fecharCartao}
         aoMexerNoMapa={() => { if (emViagem) setSeguindo(false); }}
@@ -270,7 +282,7 @@ export default function Mapa() {
         </button>
       </div>
 
-      <div ref={barraRef} className={`lg mbar ${cartaoAberto || emRota || emViagem ? "mbar-oculta" : ""}`} inert={cartaoAberto || emRota || emViagem}>
+      <div ref={barraRef} className={`lg mbar ${cartaoAberto || relatoAberto || emRota || emViagem ? "mbar-oculta" : ""}`} inert={cartaoAberto || Boolean(relatoAberto) || emRota || emViagem}>
         <span className="grabber" aria-hidden="true" />
         <button type="button" className="mbar-field" onClick={() => navegar("/busca")} aria-label="Buscar um lugar para ir, um bueiro ou um bairro">
           <IconeBusca />
@@ -283,6 +295,8 @@ export default function Mapa() {
 
       <CartaoBueiro refCartao={cartaoRef} ponto={ultimo.current} aberto={cartaoAberto} agora={agora} aoFechar={fecharCartao}
         aoVerBueiro={(id) => navegar(`/bueiro/${encodeURIComponent(id)}`)} aoVerRotas={() => navegar("/rotas")} />
+
+      <CartaoRelato relato={ultimoRelato.current} aberto={Boolean(relatoAberto)} agora={agora} aoFechar={fecharCartao} />
 
       {emRota && !semViagem ? (
         <PainelRota refPainel={painelRef} rotas={rotas} aoFechar={sairDaRota} aoTrocar={() => navegar("/rotas")} aoComecar={comecarViagem} />
@@ -384,6 +398,35 @@ function CartaoBueiro({ refCartao, ponto, aberto, agora, aoFechar, aoVerBueiro, 
           <IconeRota pequeno />{emRisco ? "Desviar" : "Rotas"}
         </button>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Cartão de um relato aprovado: o que alguém viu no lugar. Não traz nada de quem enviou, e diz
+ * que é um relato, não uma medição do sensor.
+ */
+function CartaoRelato({ relato, aberto, agora, aoFechar }) {
+  const [fotoFalhou, setFotoFalhou] = useState(false);
+  const id = relato?.id;
+  useEffect(() => setFotoFalhou(false), [id]);
+  if (!relato) return null;
+  return (
+    <section className={`lg lg-strong ms rl-cartao ${aberto ? "" : "ms-fechado"}`} aria-label="Relato selecionado" inert={!aberto}>
+      <div className="ms-head">
+        <div style={{ minWidth: 0 }}>
+          <h2 className="ms-title">{rotuloDoTipo(relato.tipo)}</h2>
+          <p className="ms-addr" style={{ whiteSpace: "normal" }}>Relato de quem passou pelo lugar · {haQuanto(relato.criadoEm, agora)}</p>
+        </div>
+        <button type="button" className="icon-btn ms-x" onClick={aoFechar} aria-label="Fechar">
+          <IconeFechar pequeno />
+        </button>
+      </div>
+      <p className="small rl-cartao-texto">{relato.descricao}</p>
+      {relato.foto && !fotoFalhou ? (
+        <img className="rl-cartao-foto" src={relato.foto} alt={`Foto do relato: ${rotuloDoTipo(relato.tipo).toLowerCase()}`} loading="lazy" onError={() => setFotoFalhou(true)} />
+      ) : null}
+      <p className="micro" style={{ marginTop: 10 }}>Aprovado pela equipe do SIMA. É um relato, não uma medição do sensor.</p>
     </section>
   );
 }

@@ -115,7 +115,7 @@ export default function Bueiro() {
         <button type="button" className="btn btn-iron" onClick={() => navegar("/rotas")}>
           <IconeRota pequeno />Desviar deste ponto
         </button>
-        <button type="button" className="btn btn-line" onClick={() => navegar("/reportar")}>
+        <button type="button" className="btn btn-line" onClick={() => navegar({ pathname: "/reportar", search: `?ponto=${encodeURIComponent(ponto.id)}` })}>
           <IconeMais pequeno />Reportar problema aqui
         </button>
       </div>

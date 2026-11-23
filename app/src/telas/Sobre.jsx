@@ -1,40 +1,7 @@
-// Telas que fazem parte do app mas ainda não foram construídas. Em vez de um botão morto, cada
-// uma diz o que vai fazer e do que depende. A tela "Sobre" também mora aqui por ser só texto.
+// Tela "Sobre o SIMA": como ler o mapa, em texto.
 
 import { Link } from "react-router";
 import { CabecalhoTela, Tela } from "../componentes/Tela";
-
-const TELAS = {
-  reportar: {
-    titulo: "Reportar problema",
-    texto: "Aqui você vai poder avisar sobre bueiro entupido, tampa quebrada ou rua alagando, com foto e localização.",
-    depende: ["O registro de relatos no servidor do SIMA"],
-    urgente: true,
-  },
-};
-
-export function EmConstrucao({ tela }) {
-  const { titulo, texto, depende, urgente } = TELAS[tela];
-  return (
-    <Tela titulo={titulo}>
-      <CabecalhoTela titulo={titulo} />
-      <div className="ec">
-        <p className="sub" style={{ marginTop: 12 }}>{texto}</p>
-        <div className="plate ec-card">
-          <h2 className="label" style={{ color: "var(--bone-50)", fontSize: 15 }}>Ainda não está pronto</h2>
-          <p className="small" style={{ marginTop: 6 }}>Esta tela entra numa próxima etapa do app. Ela depende de:</p>
-          <ul className="ec-lista">{depende.map((item) => <li key={item}>{item}</li>)}</ul>
-        </div>
-        {urgente ? (
-          <p className="small" style={{ marginTop: 16 }}>
-            Se a rua está alagando e há risco para alguém agora, ligue <a href="tel:199">199</a> (Defesa Civil) ou <a href="tel:193">193</a> (Bombeiros).
-          </p>
-        ) : null}
-        <p style={{ marginTop: 24 }}><Link className="btn btn-iron" to="/">Voltar ao mapa</Link></p>
-      </div>
-    </Tela>
-  );
-}
 
 export function Sobre() {
   return (
@@ -54,6 +21,8 @@ export function Sobre() {
             <li>Quando um bueiro está em nível alto ou crítico, a <b>rua em volta dele</b> fica pintada da mesma cor, por cerca de 300 m para cada lado. É onde o risco está, não a mancha exata de um alagamento.</li>
             <li>O <b>aviso por região</b> junta os bueiros de uma subprefeitura e acerta mais do que um bueiro sozinho.</li>
             <li>“Sem previsão” não quer dizer “sem risco”: só que não há estimativa para aquele ponto.</li>
+            <li>Os <b>alertas</b> vêm do sensor: aparecem quando ele mede o bueiro em nível crítico e somem quando a água baixa.</li>
+            <li>Os losangos são <b>relatos</b> de quem passou pelo lugar, aprovados pela equipe. Ficam no mapa por 24 horas.</li>
             <li>As <b>rotas</b> são de carro e desviam dos bueiros em nível alto ou crítico. Quando não há desvio, o app avisa por onde o caminho passa.</li>
           </ul>
         </div>
