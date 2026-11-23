@@ -4,13 +4,25 @@
 // Fora do Vite (testes com node --test) import.meta.env não existe.
 const env = import.meta.env ?? {};
 
+import { demoPedida } from "./dados/modoDemo.js";
+
 // `npm run demo` (ou VITE_DEMO=1) força a demonstração mesmo com um backend configurado no
-// .env.local. É o modo para apresentar o projeto.
-const forcarDemo = env.MODE === "demo" || env.VITE_DEMO === "1";
+// .env.local: é um app que só tem a demonstração.
+const soDemo = env.MODE === "demo" || env.VITE_DEMO === "1";
+
+/** O backend que este app foi gerado para usar (vazio = nenhum). */
+const urlApiConfigurada = soDemo ? "" : (env.VITE_API_URL || "").replace(/\/$/, "");
+
+// Com backend configurado, a demonstração continua a um toque: ?demo=1 no endereço ou o item
+// "Dados" do Menu (src/dados/modoDemo.js). A escolha é lida uma vez, ao abrir o app.
+const emDemo = !urlApiConfigurada || demoPedida() === true;
 
 export const CONFIG = {
-  /** Base do backend (ex.: /api ou http://localhost:8080). Vazio = dados de demonstração. */
-  urlApi: forcarDemo ? "" : (env.VITE_API_URL || "").replace(/\/$/, ""),
+  /** Base do backend em uso (ex.: /api ou http://localhost:8080). Vazio = dados de demonstração. */
+  urlApi: emDemo ? "" : urlApiConfigurada,
+
+  /** O backend configurado, mesmo com a demonstração ligada. Vazio = este app só tem a demonstração. */
+  urlApiConfigurada,
 
   /** De quanto em quanto tempo o app consulta as previsões de novo. O backend recalcula a cada 10 min. */
   intervaloAtualizacaoMs: Number(env.VITE_INTERVALO_S || 90) * 1000,

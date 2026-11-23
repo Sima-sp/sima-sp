@@ -23,3 +23,10 @@ export const CONFIG = {
 
 /** Endereço de uma tela do app. O app usa "#" nas rotas: telaDoApp("/ia") abre "Como a IA funciona". */
 export const telaDoApp = (rota) => `${CONFIG.urlApp}#${rota}`;
+
+/**
+ * Endereço de uma tela do app SEMPRE na demonstração (`?demo=1`). Para o que a página descreve com
+ * os dados de exemplo (trocar o clima, o bueiro MO-06): o app publicado pode estar ligado ao
+ * servidor, e aí sem o parâmetro ele abriria nos dados reais.
+ */
+export const telaDaDemo = (rota) => `${CONFIG.urlApp}?demo=1#${rota}`;
