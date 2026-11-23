@@ -11,12 +11,18 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface SensorRepository extends JpaRepository<Sensor, Long> {
 
     /** Os tipos têm que ser os mesmos da entidade (BigDecimal), senão o Spring Data recusa o método. */
     boolean existsByLatitudeAndLongitude(BigDecimal latitude, BigDecimal longitude);
+
+    /** Sensor pelo código que o firmware manda (ex.: "bueiro_01"). */
+    Optional<Sensor> findByCodigo(String codigo);
+
+    boolean existsByCodigo(String codigo);
 
     /** Todos os sensores de uma vizinhança (pode haver vários no mesmo bairro). */
     List<Sensor> findByVizinhancaIgnoreCase(String vizinhanca);

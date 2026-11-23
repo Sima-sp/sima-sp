@@ -15,7 +15,9 @@ sensor + última leitura ──► PrevisaoService ──► PrevisaoIaClient �
 1. O **agendador** (`PrevisaoAgendador`) roda a cada 10 min e recalcula todos os sensores
    ATIVOS numa chamada de lote (`POST /predict/batch`). Dez minutos bastam porque a chuva do
    Open-Meteo só muda de hora em hora.
-2. Quando chega leitura nova, dá para recalcular na hora com
+2. Quando chega leitura nova (`POST /leituras`), a previsão daquele sensor é recalculada
+   sozinha, depois de gravar e fora da requisição, no máximo uma vez por minuto por sensor
+   (`RecalculoAposLeitura`). Um administrador também pode recalcular na hora com
    `POST /previsoes/sensores/{id}/atualizar`.
 3. O resultado vira uma linha em `TBL_PREVISAO`. O mapa lê a **última previsão de cada sensor**.
 
@@ -41,7 +43,7 @@ sensor + última leitura ──► PrevisaoService ──► PrevisaoIaClient �
 |---|---|---|
 | GET | `/previsoes` | Mapa: um item por sensor, com `status` VALIDA / DESATUALIZADA / SEM_PREVISAO |
 | GET | `/previsoes/sensores/{id}` | Última previsão de um sensor |
-| POST | `/previsoes/sensores/{id}/atualizar` | Recalcula na hora (503 se o serviço de IA não responder) |
+| POST | `/previsoes/sensores/{id}/atualizar` | Recalcula na hora (só ADMIN; 503 se o serviço de IA não responder) |
 | GET | `/previsoes/regioes` | Risco por subprefeitura, para o aviso de região do app |
 | GET | `/admin/demonstracao` | Diz se há cenário de chuva simulada valendo |
 | POST | `/admin/demonstracao/iniciar` | Liga um cenário e recalcula as previsões |
@@ -52,6 +54,23 @@ sensor + última leitura ──► PrevisaoService ──► PrevisaoIaClient �
 Campos da resposta que o app usa: `nivelRisco` (principal), `probabilidadeAlagamento`
 (secundário, pode ser nulo), `medicaoTransbordando` (troca a porcentagem por "Transbordando
 agora (medido)"), `semLeituraSensor` e `status`.
+
+As datas (`geradaEm`, `validaAte`, `horaReferencia`, `dataLeitura`) vão **com o fuso**:
+`2026-11-16T14:20:00-03:00`. O backend inteiro trabalha no horário de São Paulo, mesmo num
+servidor em UTC (`config/FusoHorario`).
+
+Do sensor e da última leitura dele, em cada item (`GET /previsoes` e `/previsoes/sensores/{id}`):
+
+| Campo | Conteúdo |
+|---|---|
+| `nivelAgua` | Nível medido em % (nulo sem leitura ou sem profundidade cadastrada) |
+| `distanciaCm` | Distância medida na última leitura |
+| `dataLeitura` | Hora da última leitura, com fuso |
+| `statusSensor` | `ATIVO`, `INATIVO` ou `MANUTENCAO` |
+| `codigo` | Código do sensor (`bueiro_01`) |
+
+A última leitura vai mesmo que seja velha: o app decide o que mostrar pela `dataLeitura`. Para
+a previsão, só conta a leitura dos últimos 30 min (`ia.idade-maxima-leitura`).
 
 ## Configuração (`.env` ou variáveis de ambiente)
 
@@ -155,8 +174,9 @@ Como funciona e o que cuidar:
   move os oito para pontos reais da Zona Norte; rode antes de apresentar.
 - `sensorIds` limita o cenário a alguns sensores; o aviso por região, quando há cenário ligado,
   aplica a chuva a todos os pontos da cidade.
-- `nivelAgua` e `porcentagemLixo` simulam a leitura do sensor. Com `nivelAgua` de 100 ou mais,
-  o nível vira CRITICO com `medicaoTransbordando: true`.
+- `nivelAgua` simula a leitura do sensor. Com `nivelAgua` de 100 ou mais, o nível vira CRITICO
+  com `medicaoTransbordando: true`. (`porcentagemLixo` ainda é aceito, mas não vai mais para o
+  serviço de IA: o sensor não mede lixo.)
 
 ## Ainda em aberto
 

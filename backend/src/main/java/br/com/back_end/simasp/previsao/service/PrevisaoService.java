@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -52,11 +53,12 @@ public class PrevisaoService {
     private final PrevisaoMapper mapper;
     private final PrevisaoProperties propriedades;
     private final DemonstracaoService demonstracao;
+    private final Clock relogio;
 
     public PrevisaoService(PrevisaoIaClient cliente, PrevisaoRepository repository,
                            SensorRepository sensorRepository, LeituraRepository leituraRepository,
                            PrevisaoMapper mapper, PrevisaoProperties propriedades,
-                           DemonstracaoService demonstracao) {
+                           DemonstracaoService demonstracao, Clock relogio) {
         this.cliente = cliente;
         this.repository = repository;
         this.sensorRepository = sensorRepository;
@@ -64,6 +66,7 @@ public class PrevisaoService {
         this.mapper = mapper;
         this.propriedades = propriedades;
         this.demonstracao = demonstracao;
+        this.relogio = relogio;
     }
 
     /** Recalcula a previsão de um sensor agora (chamado ao chegar leitura nova, por exemplo). */
@@ -71,13 +74,12 @@ public class PrevisaoService {
     public Optional<PrevisaoResponse> atualizarSensor(Long sensorId) {
         Sensor sensor = sensorRepository.findById(sensorId).orElseThrow(
                 () -> new RecursoNaoEncontradoException("O sensor com ID " + sensorId + " não foi encontrado."));
-        Leitura leitura = leituraRepository.findFirstBySensorIdOrderByDataLeituraDesc(sensorId)
-                .filter(this::leituraRecente)
-                .orElse(null);
+        Leitura ultima = leituraRepository.findFirstBySensorIdOrderByDataLeituraDesc(sensorId).orElse(null);
+        Leitura recente = ultima != null && leituraRecente(ultima) ? ultima : null;
 
-        return cliente.prever(montarRequisicao(sensor, leitura))
+        return cliente.prever(montarRequisicao(sensor, recente))
                 .map(resposta -> salvar(resposta, sensor))
-                .map(mapper::paraResposta);
+                .map(previsao -> mapper.paraResposta(previsao, ultima));
     }
 
     /**
@@ -129,22 +131,29 @@ public class PrevisaoService {
     public PrevisaoResponse ultimaDoSensor(Long sensorId) {
         Sensor sensor = sensorRepository.findById(sensorId).orElseThrow(
                 () -> new RecursoNaoEncontradoException("O sensor com ID " + sensorId + " não foi encontrado."));
+        Leitura leitura = leituraRepository.findFirstBySensorIdOrderByDataLeituraDesc(sensorId).orElse(null);
         return repository.findFirstBySensorIdOrderByGeradaEmDesc(sensorId)
-                .map(mapper::paraResposta)
-                .orElseGet(() -> mapper.semPrevisao(sensor));
+                .map(previsao -> mapper.paraResposta(previsao, leitura))
+                .orElseGet(() -> mapper.semPrevisao(sensor, leitura));
     }
 
-    /** Mapa: um item por sensor, sempre — com previsão válida, desatualizada ou sem previsão. */
+    /**
+     * Mapa: um item por sensor, sempre — com previsão válida, desatualizada ou sem previsão — e a
+     * última leitura de cada um (#11). São três consultas, qualquer que seja o número de sensores.
+     */
     @Transactional(readOnly = true)
     public List<PrevisaoResponse> mapa() {
         Map<Long, Previsao> ultimas = repository.buscarUltimaDeCadaSensor().stream()
                 .filter(p -> p.getSensor() != null)
                 .collect(Collectors.toMap(p -> p.getSensor().getId(), Function.identity(), (a, b) -> a));
+        Map<Long, Leitura> leituras = leituraRepository.buscarUltimaDeCadaSensor().stream()
+                .collect(Collectors.toMap(l -> l.getSensor().getId(), Function.identity(), (a, b) -> a));
 
         return sensorRepository.findAll().stream()
                 .map(sensor -> {
                     Previsao previsao = ultimas.get(sensor.getId());
-                    return previsao == null ? mapper.semPrevisao(sensor) : mapper.paraResposta(previsao);
+                    Leitura leitura = leituras.get(sensor.getId());
+                    return previsao == null ? mapper.semPrevisao(sensor, leitura) : mapper.paraResposta(previsao, leitura);
                 })
                 .toList();
     }
@@ -156,26 +165,21 @@ public class PrevisaoService {
     /**
      * Monta o pedido ao serviço de IA.
      *
-     * <p>No fluxo normal vão só a posição e a última leitura. Com o modo de demonstração ligado
-     * para este sensor, entram a série de chuva do cenário e, se informadas, as leituras
-     * simuladas de água e lixo (que têm prioridade sobre a leitura real).</p>
+     * <p>No fluxo normal vão só a posição e o nível de água da última leitura (recente). Com o
+     * modo de demonstração ligado para este sensor, entram a série de chuva do cenário e, se
+     * informado, o nível de água simulado (que tem prioridade sobre a leitura real). O sensor não
+     * mede lixo e a chuva é do serviço de IA: os dois saíram do pedido (ADR 0006 da IA).</p>
      */
     private PrevisaoIaRequest montarRequisicao(Sensor sensor, Leitura leitura) {
         Double nivelAgua = leitura == null ? null : leitura.getNivelAgua();
-        Double porcentagemLixo = leitura == null ? null : leitura.getPorcentagemDesperdicio();
-        Double chuvaMm = leitura == null ? null : leitura.getChuvaMM();
         List<Double> chuvaHoraria = null;
 
         Optional<DemonstracaoService.Estado> cenario = demonstracao.paraSensor(sensor.getId());
         if (cenario.isPresent()) {
             DemonstracaoService.Estado simulado = cenario.get();
             chuvaHoraria = simulado.cenario().serie();
-            chuvaMm = null;  // a chuva real da leitura não pode se misturar com a simulada
             if (simulado.nivelAgua() != null) {
                 nivelAgua = simulado.nivelAgua();
-            }
-            if (simulado.porcentagemLixo() != null) {
-                porcentagemLixo = simulado.porcentagemLixo();
             }
         }
 
@@ -183,17 +187,15 @@ public class PrevisaoService {
                 sensor.getId(),
                 paraDouble(sensor.getLatitude()),
                 paraDouble(sensor.getLongitude()),
-                OffsetDateTime.now(),
+                OffsetDateTime.now(relogio),
                 nivelAgua,
-                porcentagemLixo,
-                chuvaMm,
                 chuvaHoraria);
     }
 
     /** Leitura velha demais não vale como "estado atual" do sensor. */
     private boolean leituraRecente(Leitura leitura) {
         return leitura.getDataLeitura() != null
-                && leitura.getDataLeitura().isAfter(LocalDateTime.now().minus(propriedades.idadeMaximaLeitura()));
+                && leitura.getDataLeitura().isAfter(LocalDateTime.now(relogio).minus(propriedades.idadeMaximaLeitura()));
     }
 
     private double paraDouble(BigDecimal valor) {

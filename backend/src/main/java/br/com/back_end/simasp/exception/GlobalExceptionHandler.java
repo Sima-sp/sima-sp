@@ -36,6 +36,26 @@ public class GlobalExceptionHandler {
         return problema;
     }
 
+    @ExceptionHandler(ChaveSensorInvalidaException.class)
+    public ProblemDetail tratarChaveSensorInvalida(ChaveSensorInvalidaException exception)
+    {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, exception.getMessage());
+        problema.setTitle("Chave do sensor inválida");
+        problema.setProperty("codigo", "CHAVE_SENSOR_INVALIDA");
+
+        return problema;
+    }
+
+    @ExceptionHandler(SensorIndisponivelException.class)
+    public ProblemDetail tratarSensorIndisponivel(SensorIndisponivelException exception)
+    {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+        problema.setTitle("Sensor inativo ou em manutenção");
+        problema.setProperty("codigo", "SENSOR_INDISPONIVEL");
+
+        return problema;
+    }
+
     @ExceptionHandler(LocalizacaoSensorDuplicadaException.class)
     public ProblemDetail tratarSensorComLocalizacaoDuplicada(LocalizacaoSensorDuplicadaException exception)
     {

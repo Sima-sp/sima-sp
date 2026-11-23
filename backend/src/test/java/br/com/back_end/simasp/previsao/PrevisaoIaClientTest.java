@@ -166,7 +166,7 @@ class PrevisaoIaClientTest {
                         """, MediaType.APPLICATION_JSON));
 
         PrevisaoIaRequest comCenario = new PrevisaoIaRequest(7L, -23.5152, -46.5841, OffsetDateTime.now(),
-                null, null, null, CenarioChuvaEnum.CHUVA_FORTE.serie());
+                null, CenarioChuvaEnum.CHUVA_FORTE.serie());
         Optional<PrevisaoIaResponse> resposta = cliente.prever(comCenario);
 
         assertThat(resposta).isPresent();
@@ -193,6 +193,6 @@ class PrevisaoIaClientTest {
     }
 
     private PrevisaoIaRequest requisicao() {
-        return new PrevisaoIaRequest(7L, -23.5152, -46.5841, OffsetDateTime.now(), 85.0, 20.0, null, null);
+        return new PrevisaoIaRequest(7L, -23.5152, -46.5841, OffsetDateTime.now(), 85.0, null);
     }
 }
