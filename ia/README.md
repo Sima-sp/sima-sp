@@ -508,10 +508,26 @@ O CI (`.github/workflows/ci.yml`, na raiz do repositório) roda a suíte assim e
 | `test_api.py` | schema, payload antigo e novo, lixo/`chuvaMm` ignorados, crítico só com medição, lote, 503, modo regras, acento configurável |
 | `test_baseline_artefatos.py` | baseline e ida-e-volta do pacote |
 | `test_coleta.py` | parser do CGE (HTML de exemplo, meia-noite, horário de verão), GeoSampa em UTM → WGS84, zonas, distância ao córrego, DBSCAN/seleção, geocodificador (cruzamento/referência/logradouro) |
+| `test_modelo_bom_senso.py` | o **modelo em uso** (`models/flood_lgbm_v1.joblib`), não o de teste: tempo seco dá BAIXO, qualquer chuva sobe a chance, mais chuva não baixa, ponto que alaga mais fica acima, chance sempre entre 0 e 1 (também sem as características do ponto) e a chuva forte da demonstração leva pontos a ALTO (#27) |
 
 Nenhum teste acessa a internet: a chuva e as respostas do Nominatim são simuladas e o modelo de
 teste é treinado em segundos com dados sintéticos. Os testes geoespaciais são pulados se
 `geopandas`/`shapely` não estiverem instalados.
+
+**Testes de bom senso do v1 (#27).** Dois casos falham com o modelo em uso e ficam marcados como
+falha esperada (`xfail` estrito): o teste não foi afrouxado para passar, e avisa quando um modelo
+novo corrigir.
+
+- **Tempo seco nas tardes de janeiro:** com 72 h sem chuva, 14 pontos ficam em MÉDIO das 13 h às
+  17 h (chance de 0,65 %, limiar de 0,41 %). São 5 de 288 horários conferidos no ano. É o peso do
+  calendário no modelo (#30).
+- **Mais chuva, chance menor:** em 1,1 % das comparações (ponto e horário), o cenário com mais
+  chuva dá chance menor, quase sempre nas tardes de verão. O LightGBM não tem restrição monotônica
+  na chuva; ela está prevista no retreino (#32).
+
+Dois testes de guarda avisam se esses casos se espalharem: o tempo seco tem de dar BAIXO fora das
+tardes de janeiro, e a chuva só pode baixar a chance em no máximo 3 % das comparações da grade
+(hoje, 2,1 %).
 
 ---
 
