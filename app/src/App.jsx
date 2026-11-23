@@ -24,6 +24,7 @@ import { Sobre } from "./telas/Sobre";
 import { MeusRelatos, Reportar } from "./telas/Reportar";
 import { Cadastro, Entrar, Perfil } from "./telas/Conta";
 import Privacidade from "./telas/Privacidade";
+import Admin from "./telas/Admin";
 import { PrimeiroUso, ProvedorApresentacao } from "./componentes/PrimeiroUso";
 
 /** O painel do sensor é outra página (sensor.html), fora do app: troca de página ao chegar aqui. */
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="/entrar" element={<Entrar />} />
               <Route path="/cadastro" element={<Cadastro />} />
               <Route path="/privacidade" element={<Privacidade />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             {/* Apresentação de primeiro uso: por cima de tudo, só na primeira abertura. */}

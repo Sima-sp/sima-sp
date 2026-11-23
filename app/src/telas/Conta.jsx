@@ -345,6 +345,12 @@ export function Perfil() {
 
       <h2 className="grp-t">Conta</h2>
       <div className="grp">
+        {conta.admin ? (
+          <button type="button" className="row" onClick={() => navegar("/admin")}>
+            <span className="row-k">Administração<span className="row-sub">Relatos em análise, alertas, sensores e chuva de teste</span></span>
+            <span className="row-chev"><IconeSeta pequeno /></span>
+          </button>
+        ) : null}
         <button type="button" className="row" onClick={() => navegar("/relatos")}>
           <span className="row-k">Meus relatos</span>
           <span className="row-chev"><IconeSeta pequeno /></span>
