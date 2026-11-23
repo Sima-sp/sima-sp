@@ -82,6 +82,9 @@ styles/
   base.css              tokens dos dois temas (os mesmos do app) e componentes compartilhados
   landing.css           estilos da página (prefixo ld-)
 public/logo-bone.png    a marca
+public/icone-192.png    o ícone da aba (e icone-apple.png): os mesmos do app
+public/compartilhar.png a imagem que aparece quando o link é colado numa conversa (1200×630)
+ferramentas/compartilhar.html  a fonte dessa imagem
 public/qr-sima.svg      QR code que abre a página (e qr-sima.png, para slides e impressos)
 ```
 
@@ -125,6 +128,18 @@ A página e o app precisam dizer a mesma coisa. Onde cada afirmação vive:
   reais; as leituras dos bueiros e o clima são simulados. Num sistema de risco, dizer o que é
   inventado importa tanto quanto mostrar o que funciona.
 - **Janela de previsão = 3 horas** em todo lugar: é o horizonte do modelo de IA.
+
+## Imagem de compartilhamento
+
+Quando o link da página é colado no WhatsApp, no Instagram ou num e-mail, aparece
+`public/compartilhar.png` (as tags `og:` e `twitter:` ficam em `app/layout.jsx`). As redes pedem o
+endereço completo da imagem, que sai de `NEXT_PUBLIC_URL_SITE` (padrão:
+`https://sima-sp.github.io/sima-sp/`).
+
+Para mudar a imagem: edite `ferramentas/compartilhar.html` (usa as fontes de `node_modules`,
+então rode `npm ci` antes), abra no Chrome com a janela em 1200×630 (ou no modo de aparelho do
+DevTools) e capture a tela para `public/compartilhar.png`. As redes guardam a imagem por um tempo:
+para ver a nova, use o depurador de compartilhamento de cada uma.
 
 ## O QR code
 
