@@ -1,11 +1,11 @@
 {
   "name": "servidor-sensor",
   "version": "1.0.0",
-  "description": "",
+  "description": "Servidor do sensor do SIMA-SP: recebe a leitura do ESP32, mostra no painel e repassa ao backend",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test \"teste/*.test.js\""
   },
   "keywords": [],
   "author": "",
@@ -13,5 +13,8 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1"
+  },
+  "engines": {
+    "node": ">=20.12"
   }
 }

@@ -195,11 +195,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: iot/servidor-sensor/package-lock.json
-      - name: Servidor do sensor instala e não tem erro de sintaxe
+      - name: Servidor do sensor instala e passa nos testes
         working-directory: iot/servidor-sensor
         run: |
           npm ci
           node --check server.js
+          npm test
 
   ci:
     name: ci
