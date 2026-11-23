@@ -40,12 +40,25 @@ ESP32, mostra no painel da bancada e **repassa ao backend** (#54).
 
 | Rota | O que faz |
 |---|---|
-| `POST /api/leitura` | Recebe a leitura do ESP32, classifica e guarda a última em memória. Distância que não é número, ou fora de 0 a 2000 cm (o limite do backend), volta `400` |
-| `GET /api/leitura` | A última leitura (ou `null` se ainda não chegou nenhuma) |
+| `POST /api/leitura` | Recebe a leitura do ESP32, classifica e guarda a última em memória. Distância que não é número, ou fora de 0 a 2000 cm (o limite do backend), volta `400`. Eco falso responde `200`, mas não é usado (ver abaixo) |
+| `GET /api/leitura` | A última leitura (ou `null` se ainda não chegou nenhuma), com `idadeSegundos` e `parado` (`true` depois de 10 s sem leitura nova) |
 | `GET /api/limites` | `{ "zonaCega": 15, "critico": 20, "alerta": 30, "atencao": 45 }` |
-| `GET /api/estado` | Como está o repasse: `backend` (`desligado`, `aguardando`, `ligado` ou `fora`), o código repassado, último envio que deu certo, último erro, leituras na fila e códigos ignorados |
-| `GET /api/stream` | A leitura em tempo real (Server-Sent Events) |
+| `GET /api/estado` | Como está o repasse: `backend` (`desligado`, `aguardando`, `ligado` ou `fora`), o código repassado, último envio que deu certo, último erro, leituras na fila e códigos ignorados. Em `sensor`: hora e idade da última leitura, `parado` e quantas leituras saíram por eco falso |
+| `GET /api/stream` | A leitura em tempo real (Server-Sent Events). Quando o sensor para, manda a última leitura de novo, uma vez, com `parado: true` |
 | `/` | Arquivos da pasta `public/` |
+
+### Sensor parado, eco falso e folga nos limites (#56)
+
+- **Sensor parado:** passados **10 s** sem leitura nova (cinco envios do firmware), a última
+  leitura continua disponível, mas sai com `parado: true`. É a placa desligada, sem Wi-Fi ou sem
+  eco. O painel do app usa o mesmo tempo e mostra "Sensor parado".
+- **Eco falso:** uma leitura que salta mais de **15 cm** em relação à anterior (água de verdade não
+  sobe isso em 2 s) fica em suspeita e não vai ao painel, à classificação nem ao backend. Se a
+  leitura seguinte confirmar o salto, a mudança era de verdade e passa a valer. Depois de o sensor
+  ficar parado, a primeira leitura vale sem comparação. O log mostra `[DESCARTADA]`.
+- **Folga nos limites:** perto de um limite, a medida oscila e o nível ficaria trocando. O nível
+  só muda quando a água passa do limite por pelo menos **2 cm** (para subir e para descer). Vale
+  para o nível do servidor e para a troca de faixa que dispara o envio imediato ao backend.
 
 ### Repasse ao backend
 
@@ -91,7 +104,7 @@ cd servidor-sensor
 npm install
 cp .env.example .env   # e preencha BACKEND_URL e SENSOR_CHAVE
 npm start
-npm test               # testes do repasse
+npm test               # testes do servidor e do repasse
 ```
 
 Para conferir de ponta a ponta: com o servidor ligado ao backend, mande uma leitura e veja o estado.
@@ -113,6 +126,8 @@ conecta sozinho, sem internet.
 3. `npm start` na pasta `servidor-sensor/` do notebook, com o `.env` preenchido.
 4. Liga a placa. `http://localhost:3000/api/leitura` passa a mostrar a distância, e
    `http://localhost:3000/api/estado` deve dizer `"backend": "ligado"` em até 30 s.
+5. Desligando a placa, em até 10 s `/api/leitura` diz `"parado": true` e o painel mostra "Sensor
+   parado".
 
 ## Diferenças que valem lembrar
 
@@ -120,8 +135,11 @@ conecta sozinho, sem internet.
   painel do SIMA usa crítico 30, alto 45, médio 60 cm, porque o sensor só mede a partir de 20 cm
   (informado em 07/10); o painel não usa os limites do servidor para dar o nível, só avisa que
   são diferentes. O LED do firmware usa 25 e 45 cm.
-- **Leitura impossível.** O servidor recusa distância zero, negativa ou acima de 2000 cm (`400`).
-  O firmware também não manda leitura fora de 2 a 450 cm.
+- **Leitura impossível.** O servidor recusa distância zero, negativa ou acima de 2000 cm (`400`) e
+  ignora o eco falso. O firmware também não manda leitura fora de 2 a 450 cm.
+- **Firmware (#56, ainda não feito):** ele ainda manda uma medida solta a cada 2 s, e não a
+  mediana; sem eco, fica calado (não dá para distinguir de placa desligada, e o servidor diz
+  "parado" nos dois casos); e não reconecta ao Wi-Fi sozinho.
 - **Nível do servidor.** O campo `nivel` do servidor vai de 0 (Normal) a 3 (Crítico); o do app vai
   de 1 (Baixo) a 4 (Crítico). O painel não usa o do servidor.
 - **Só a última leitura fica aqui.** O histórico fica no backend, que recebe a mediana. Qualquer
