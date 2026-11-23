@@ -3,8 +3,9 @@
 // O ESP32 manda uma leitura a cada 2 s. Aqui elas são juntadas e o backend recebe:
 // - a MEDIANA de cada janela (30 s por padrão), que tira os picos do ultrassom;
 // - um envio NA HORA quando o nível muda de faixa (normal, atenção, alerta, crítico), para o
-//   alerta chegar rápido. A faixa vem da mediana das últimas leituras, e entre dois envios
-//   imediatos há um intervalo mínimo: leitura oscilando na fronteira não vira um envio por segundo.
+//   alerta chegar rápido. A faixa vem da mediana das últimas leituras, com a folga nos limites
+//   (niveis.js), e entre dois envios imediatos há um intervalo mínimo: leitura oscilando na
+//   fronteira não vira um envio por segundo.
 //
 // O envio corre separado da resposta ao ESP32: backend fora ou lento não atrasa o painel.
 // Se o backend não responde, as leituras esperam numa fila curta e o envio é tentado de novo
@@ -15,7 +16,7 @@
 // código (um teste qualquer na rede) é ignorada: se entrasse na fila, voltaria 404 ou 401 e
 // seguraria atrás dela as leituras do sensor de verdade.
 
-const { classificar } = require("./niveis");
+const { classificarComFolga } = require("./niveis");
 
 const PADRAO = {
   intervaloMs: 30_000,
@@ -99,7 +100,7 @@ class Repasse {
     if (s.recentes.length > this.o.recentes) s.recentes.shift();
 
     const suave = mediana(s.recentes);
-    const faixa = classificar(suave).status;
+    const faixa = classificarComFolga(suave, s.faixaEnviada).status;
     const agora = this.agora();
     const primeira = s.faixaEnviada === null;
     if ((primeira || faixa !== s.faixaEnviada) && agora - s.ultimoImediato >= this.o.minImediatoMs) {
@@ -122,7 +123,7 @@ class Repasse {
   }
 
   enfileirar(codigo, s, distanciaCm, em) {
-    s.faixaEnviada = classificar(distanciaCm).status;
+    s.faixaEnviada = classificarComFolga(distanciaCm, s.faixaEnviada).status;
     this.fila.push({ codigo, distanciaCm: umaCasa(distanciaCm), medidaEm: new Date(em).toISOString() });
     // Fila cheia: sai a mais antiga, menos a que está sendo enviada agora (essa sai pela resposta).
     while (this.fila.length > this.o.filaMax) {
