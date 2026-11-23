@@ -5,10 +5,12 @@ import br.com.back_end.simasp.auth.dto.LoginResponse;
 import br.com.back_end.simasp.exception.CredenciaisInvalidasException;
 import br.com.back_end.simasp.security.LimiteDeTentativas;
 import br.com.back_end.simasp.security.TokenService;
+import br.com.back_end.simasp.security.TokensCancelados;
 import br.com.back_end.simasp.usuario.entity.Usuario;
 import br.com.back_end.simasp.usuario.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,9 @@ public class AuthService {
 
     @Autowired
     private LimiteDeTentativas limite;
+
+    @Autowired
+    private TokensCancelados tokensCancelados;
 
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request, String ip)
@@ -56,6 +61,12 @@ public class AuthService {
         return new LoginResponse(token, "Bearer", tokenService.getExpiracaoSegundos());
 
 
+    }
+
+    /** O token deixa de valer na hora, até o horário em que venceria (#6). */
+    public void logout(Jwt jwt)
+    {
+        tokensCancelados.cancelar(jwt.getId(), jwt.getExpiresAt());
     }
 
     private CredenciaisInvalidasException credenciaisInvalidas()

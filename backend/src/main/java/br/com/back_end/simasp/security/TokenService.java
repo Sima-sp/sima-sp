@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Getter
 @Service
@@ -40,7 +41,7 @@ public class TokenService {
     {
         Instant agora = Instant.now();
 
-        JwtClaimsSet claims = JwtClaimsSet.builder().issuer(emissor).issuedAt(agora).expiresAt(agora.plusSeconds(expiracaoSegundos)).subject(usuario.getEmail()).claim("usuarioId", usuario.getId().toString()).claim("perfil", usuario.getTipoUsuario().toString()).build();
+        JwtClaimsSet claims = JwtClaimsSet.builder().id(UUID.randomUUID().toString()).issuer(emissor).issuedAt(agora).expiresAt(agora.plusSeconds(expiracaoSegundos)).subject(usuario.getEmail()).claim("usuarioId", usuario.getId().toString()).claim("perfil", usuario.getTipoUsuario().toString()).build();
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
 

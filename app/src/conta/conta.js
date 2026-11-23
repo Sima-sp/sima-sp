@@ -1,8 +1,8 @@
 // O que a conta faz, sem React: entrar, criar, sair, mudar o perfil e apagar. As telas chegam
 // aqui pelo ContaContexto; os testes chamam direto, com um servidor de mentira.
 //
-// Rotas do backend (ver backend/README.md): POST /auth/login, POST /usuarios, GET e PATCH
-// /usuarios/me, DELETE /usuarios/me. Não há rota de logout: sair é apagar o token do aparelho.
+// Rotas do backend (ver backend/README.md): POST /auth/login, POST /auth/logout, POST /usuarios,
+// GET e PATCH /usuarios/me, DELETE /usuarios/me.
 
 import { CONFIG } from "../config.js";
 import { buscarPerfilCom, criarContaNoServidor, entrarNoServidor, pedir } from "../dados/api.js";
@@ -78,9 +78,22 @@ export async function cadastrar({ email, telefone, senha, latitude, longitude, p
   return entrar(email, senha);
 }
 
-/** Sai: apaga a sessão do aparelho. Não depende do servidor responder. */
-export function sair() {
+/**
+ * Sai: apaga a sessão do aparelho na hora e avisa o servidor (POST /auth/logout), que cancela o
+ * token (#6): ele para de valer mesmo que alguém tenha guardado uma cópia. Ninguém espera pelo
+ * servidor, e servidor fora do ar não impede de sair.
+ *
+ * `depoisDe`: um pedido que ainda precisa do token (a remoção da inscrição do push) e tem de
+ * chegar antes do logout. A promessa devolvida termina quando o aviso ao servidor termina.
+ */
+export function sair({ depoisDe } = {}) {
+  const token = sessaoAtual()?.token;
   definirSessao(null, { motivo: "saiu" });
+  if (!token) return Promise.resolve();
+  return Promise.resolve(depoisDe)
+    .catch(() => {})
+    .then(() => pedir("/auth/logout", { metodo: "POST", token, resposta: "nada" }))
+    .catch(() => {});
 }
 
 /** Muda só os campos enviados (telefone, latitude+longitude, permissaoAlerta) e atualiza a sessão. */

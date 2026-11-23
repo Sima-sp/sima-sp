@@ -274,8 +274,9 @@ export function Perfil() {
     if (bairro) fazer("local", () => conta.atualizarPerfil({ latitude: bairro.latitude, longitude: bairro.longitude }), `Localização de referência: ${bairro.nome}.`);
   };
   // Ao sair, o aparelho deixa de receber os avisos desta conta. O pedido de remoção sai antes de
-  // a sessão ser apagada (ele precisa do token), mas ninguém espera por ele.
-  const sair = () => { desligarPush(); conta.sair(); navegar("/", { replace: true }); };
+  // a sessão ser apagada (ele precisa do token), e o logout no servidor só depois dele, para não
+  // cancelar o token antes de a remoção chegar. Ninguém espera por nenhum dos dois.
+  const sair = () => { const push = desligarPush(); conta.sair({ depoisDe: push }); navegar("/", { replace: true }); };
   const apagar = () => fazer("apagar", async () => { await conta.apagarConta(); navegar("/", { replace: true }); });
 
   if (!conta.disponivel || !usuario) {
