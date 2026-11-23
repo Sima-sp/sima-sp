@@ -65,7 +65,9 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:4173,https://sima-sp.github.io}
       IA_HABILITADA: "true"
       IA_URL: http://ia:5000
-      IA_DEMONSTRACAO: ${IA_DEMONSTRACAO:-true}
+      # Chuva de teste desligada se o .env não pedir (como no perfil prod): este Compose também é
+      # a base da hospedagem. O .env da banca liga (IA_DEMONSTRACAO=true no .env.example).
+      IA_DEMONSTRACAO: ${IA_DEMONSTRACAO:-false}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_SENHA: ${ADMIN_SENHA:-}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}

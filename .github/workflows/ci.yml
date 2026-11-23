@@ -42,7 +42,13 @@ jobs:
             app: ["app/**"]
             site: ["site/**"]
             iot: ["iot/**"]
-            infra: ["infra/**", "backend/docs/sensores-capital.sql"]
+            # O Compose também quebra quando muda a configuração do backend ou um Dockerfile.
+            infra:
+              - "infra/**"
+              - "backend/docs/sensores-capital.sql"
+              - "backend/Dockerfile"
+              - "backend/src/main/resources/application*.properties"
+              - "ia/Dockerfile"
             ci: [".github/workflows/ci.yml"]
 
   backend:

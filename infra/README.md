@@ -54,21 +54,28 @@ Ensaiar **no notebook que vai à banca**, com tudo já baixado antes do dia.
    chave em `SENSOR_CHAVE`; depois `npm start`. Em `http://localhost:3000/api/estado` deve aparecer
    `"backend": "ligado"`.
 4. **App:** o app do GitHub Pages abre em https e o navegador não deixa ele chamar um backend em
-   http no notebook. Na banca, rode o app no próprio notebook, que repassa `/api` ao backend:
+   http no notebook. Na banca, rode o app no próprio notebook, que repassa `/api` ao backend.
+   Crie `app/.env.local` com uma linha só, `VITE_API_URL=/api`, pelo editor ou assim:
 
    ```
    cd app
-   echo VITE_API_URL=/api > .env.local
+   printf 'VITE_API_URL=/api\n' > .env.local                    # Git Bash, Linux, Mac
+   Set-Content .env.local "VITE_API_URL=/api" -Encoding ascii    # PowerShell
    npm run dev:rede        # http://localhost:5173, e pelo celular na mesma rede: http://<ip do notebook>:5173
    ```
+
+   No PowerShell, não use `echo ... > .env.local`: ele grava o arquivo em UTF-16 e o Vite não o lê.
 
    A notificação no celular precisa de https, então ela não funciona neste modo: o alerta aparece
    dentro do app.
 5. **Sem chuva real ou sem internet:** ligue a chuva de teste no Swagger,
-   `POST /admin/demonstracao/iniciar` com `{"cenario": "CHUVA_FORTE", "minutos": 60}`. O mapa
+   `POST /admin/demonstracao/iniciar` com `{"cenario": "CHUVA_FORTE", "minutos": 60}`. Ela só
+   existe com `IA_DEMONSTRACAO=true` no `.env` (o `gerar-env.sh` já põe; sem a linha, fica
+   desligada, como na hospedagem). O mapa
    precisa de internet para as imagens (use o celular roteando).
 
 ## Testado no CI
 
-O job `infra` do CI sobe este Compose do zero a cada mudança nesta pasta e confere: os 136 pontos
+O job `infra` do CI sobe este Compose do zero a cada mudança nesta pasta, no script dos pontos, na
+configuração do backend (`application*.properties`) ou nos Dockerfiles, e confere: os 136 pontos
 cadastrados com os nomes certos, o login do admin e `GET /previsoes` respondendo.
