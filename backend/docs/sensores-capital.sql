@@ -19,6 +19,11 @@
 -- Pode rodar mais de uma vez: a tabela tem índice único por posição, e o ponto que já existe só
 -- tem o nome atualizado. Nada é apagado.
 
+-- O arquivo é UTF-8. Sem esta linha, um cliente que não usa UTF-8 por padrão (o do Windows, ou
+-- o mysql de algumas instalações Linux) grava "TietÃª" no lugar de "Tietê". Rodar de novo
+-- corrige os nomes já gravados errado.
+SET NAMES utf8mb4;
+
 INSERT INTO TBL_SENSOR (NR_LATITUDE, NR_LONGITUDE, TX_VIZINHANCA, TX_STATUS_SENSOR)
 VALUES
     (-23.539846, -46.627407, 'Av. do Estado — Sé', 'ATIVO'),
