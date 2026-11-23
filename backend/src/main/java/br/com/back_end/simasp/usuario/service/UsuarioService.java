@@ -10,8 +10,6 @@ import br.com.back_end.simasp.usuario.mapper.UsuarioMapper;
 import br.com.back_end.simasp.usuario.repository.UsuarioRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -40,12 +38,6 @@ public class UsuarioService {
     public static BigDecimal arredondar(BigDecimal coordenada)
     {
         return coordenada == null ? null : coordenada.setScale(3, RoundingMode.HALF_UP);
-    }
-
-    public Page<UsuarioResponse> buscarUsuariosProximos(BigDecimal longitude, BigDecimal latitude, Integer distanciaMetros, Pageable paginacao)
-    {
-        Page<Usuario> usuarios = repository.buscarUsuariosProximos(longitude, latitude, distanciaMetros, paginacao);
-        return usuarios.map(mapper::paraUsuarioResponse);
     }
 
     @Transactional
